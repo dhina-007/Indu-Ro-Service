@@ -31,6 +31,7 @@ const els = {
   viewCreate: document.getElementById("viewCreate"),
   toolbarSubtitle: document.getElementById("toolbarSubtitle"),
   toolbarCreateActions: document.getElementById("toolbarCreateActions"),
+  dashHeroLabel: document.getElementById("dashHeroLabel"),
   dashHeroAmount: document.getElementById("dashHeroAmount"),
   dashHeroMeta: document.getElementById("dashHeroMeta"),
   dashCount: document.getElementById("dashCount"),
@@ -39,12 +40,15 @@ const els = {
   dashPeriodLabel: document.getElementById("dashPeriodLabel"),
   dashList: document.getElementById("dashList"),
   dashEmpty: document.getElementById("dashEmpty"),
+  editorBillTotal: document.getElementById("editorBillTotal"),
+  editorProfitTotal: document.getElementById("editorProfitTotal"),
 };
 
 let items = [];
 let currentId = null;
 let toastTimer = null;
 let currentPeriod = "day";
+let currentDashMode = "bill";
 let currentView = "dashboard";
 
 /* ---------- helpers ---------- */
@@ -419,6 +423,13 @@ function updatePreview() {
   const state = getFormState();
   const totals = calcTotals(state);
 
+  if (els.editorBillTotal) {
+    els.editorBillTotal.textContent = `₹ ${formatMoney(totals.total)}`;
+  }
+  if (els.editorProfitTotal) {
+    els.editorProfitTotal.textContent = `₹ ${formatMoney(parseNum(state.profit))}`;
+  }
+
   els.previewCustomerName.textContent = state.customerName || "Customer Name";
   els.previewCustomerPhone.textContent = state.customerPhone || "—";
   els.previewRefNo.textContent = state.refNo || "—";
@@ -696,7 +707,14 @@ function renderDashboard() {
     totalProfit += parseNum(inv.profit);
   });
 
-  els.dashHeroAmount.textContent = `₹ ${formatMoney(revenue)}`;
+  const isProfitMode = currentDashMode === "profit";
+
+  if (els.dashHeroLabel) {
+    els.dashHeroLabel.textContent = isProfitMode ? "Total profit" : "Total bill amount";
+  }
+  els.dashHeroAmount.textContent = isProfitMode
+    ? `₹ ${formatMoney(totalProfit)}`
+    : `₹ ${formatMoney(revenue)}`;
   els.dashHeroMeta.textContent = `${filtered.length} invoice${filtered.length === 1 ? "" : "s"}`;
   els.dashCount.textContent = String(filtered.length);
   els.dashRevenue.textContent = `₹ ${formatMoneyShort(revenue)}`;
@@ -710,32 +728,58 @@ function renderDashboard() {
     const totals = calcTotals(inv);
     const profitNum = parseNum(inv.profit);
     const hasProfit = inv.profit !== undefined && inv.profit !== null && String(inv.profit).trim() !== "";
-    const profitBadge = hasProfit || profitNum !== 0
-      ? `<span class="dash-profit-badge">Profit: ₹ ${formatMoney(profitNum)}</span>`
-      : "";
 
     const li = document.createElement("li");
     li.className = "dash-item";
-    li.innerHTML = `
-      <button type="button" class="dash-item-main">
-        <div class="dash-item-top">
-          <div class="dash-item-cust">
-            <strong>${escapeHtml(inv.customerName) || "Untitled"}</strong>
-            ${profitBadge}
+
+    if (isProfitMode) {
+      li.innerHTML = `
+        <button type="button" class="dash-item-main">
+          <div class="dash-item-top">
+            <div class="dash-item-cust">
+              <strong>${escapeHtml(inv.customerName) || "Untitled"}</strong>
+              <span class="dash-profit-badge">Profit</span>
+            </div>
+            <span class="dash-item-amt" style="color:var(--warr)">+₹ ${formatMoney(profitNum)}</span>
           </div>
-          <span class="dash-item-amt">₹ ${formatMoney(totals.total)}</span>
+          <div class="dash-item-meta">
+            Bill: ₹ ${formatMoney(totals.total)} · #${escapeHtml(inv.refNo)} · ${formatDateDisplay(inv.issueDate)}
+            ${inv.customerPhone ? ` · ${escapeHtml(inv.customerPhone)}` : ""}
+          </div>
+        </button>
+        <div class="dash-item-actions">
+          <button type="button" class="dash-act dash-act-wa" data-act="whatsapp">WhatsApp</button>
+          <button type="button" class="dash-act" data-act="open">Open</button>
+          <button type="button" class="dash-act dash-act-danger" data-act="delete">Delete</button>
         </div>
-        <div class="dash-item-meta">
-          #${escapeHtml(inv.refNo)} · ${formatDateDisplay(inv.issueDate)}
-          ${inv.customerPhone ? ` · ${escapeHtml(inv.customerPhone)}` : ""}
+      `;
+    } else {
+      const profitBadge = hasProfit || profitNum !== 0
+        ? `<span class="dash-profit-badge">Profit: ₹ ${formatMoney(profitNum)}</span>`
+        : "";
+
+      li.innerHTML = `
+        <button type="button" class="dash-item-main">
+          <div class="dash-item-top">
+            <div class="dash-item-cust">
+              <strong>${escapeHtml(inv.customerName) || "Untitled"}</strong>
+              ${profitBadge}
+            </div>
+            <span class="dash-item-amt">₹ ${formatMoney(totals.total)}</span>
+          </div>
+          <div class="dash-item-meta">
+            #${escapeHtml(inv.refNo)} · ${formatDateDisplay(inv.issueDate)}
+            ${inv.customerPhone ? ` · ${escapeHtml(inv.customerPhone)}` : ""}
+          </div>
+        </button>
+        <div class="dash-item-actions">
+          <button type="button" class="dash-act dash-act-wa" data-act="whatsapp">WhatsApp</button>
+          <button type="button" class="dash-act" data-act="open">Open</button>
+          <button type="button" class="dash-act dash-act-danger" data-act="delete">Delete</button>
         </div>
-      </button>
-      <div class="dash-item-actions">
-        <button type="button" class="dash-act dash-act-wa" data-act="whatsapp">WhatsApp</button>
-        <button type="button" class="dash-act" data-act="open">Open</button>
-        <button type="button" class="dash-act dash-act-danger" data-act="delete">Delete</button>
-      </div>
-    `;
+      `;
+    }
+
     li.querySelector(".dash-item-main").addEventListener("click", () => openInvoice(inv));
     li.querySelector('[data-act="open"]').addEventListener("click", () => openInvoice(inv));
     li.querySelector('[data-act="whatsapp"]').addEventListener("click", () => shareWhatsAppInvoice(inv));
@@ -744,6 +788,16 @@ function renderDashboard() {
     });
     els.dashList.appendChild(li);
   });
+}
+
+function setDashMode(mode) {
+  currentDashMode = mode;
+  document.querySelectorAll(".dash-mode-tab").forEach((tab) => {
+    const active = tab.dataset.mode === mode;
+    tab.classList.toggle("active", active);
+    tab.setAttribute("aria-selected", active ? "true" : "false");
+  });
+  renderDashboard();
 }
 
 function setPeriod(period) {
@@ -888,6 +942,10 @@ function bindEvents() {
 
   document.querySelectorAll(".period-tab").forEach((tab) => {
     tab.addEventListener("click", () => setPeriod(tab.dataset.period));
+  });
+
+  document.querySelectorAll(".dash-mode-tab").forEach((tab) => {
+    tab.addEventListener("click", () => setDashMode(tab.dataset.mode));
   });
 }
 

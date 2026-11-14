@@ -587,6 +587,82 @@ table.inv-table {
   padding: 1rem;
 }
 
+.dash-mode-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  background: var(--white);
+  padding: 4px;
+  border-radius: 12px;
+  margin-bottom: 0.85rem;
+  box-shadow: var(--shadow);
+}
+
+.dash-mode-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0.65rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  border-radius: 9px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dash-mode-tab .mode-icon {
+  flex-shrink: 0;
+}
+
+.dash-mode-tab.active {
+  background: var(--blue-soft);
+  color: var(--blue-dark);
+}
+
+.dash-mode-tab[data-mode="profit"].active {
+  background: #e8f5e9;
+  color: #1b5e20;
+}
+
+.billing-summary-box {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f7fafc;
+  border: 1px solid #dbe6ee;
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  margin: 1rem 0;
+}
+
+.billing-summary-box .summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.billing-summary-box .summary-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.billing-summary-box .summary-val {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.billing-summary-box .profit-item .summary-val {
+  color: var(--warr);
+}
+
 .dash-hero {
   background: linear-gradient(145deg, #4fc3f7 0%, #0288d1 100%);
   color: var(--white);

@@ -31,8 +31,19 @@
 
     <!-- DASHBOARD VIEW -->
     <section class="view" id="viewDashboard" data-view="dashboard">
+      <div class="dash-mode-tabs" role="tablist" aria-label="Dashboard view mode">
+        <button type="button" class="dash-mode-tab active" data-mode="bill" role="tab" aria-selected="true">
+          <svg class="mode-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+          Bill
+        </button>
+        <button type="button" class="dash-mode-tab" data-mode="profit" role="tab" aria-selected="false">
+          <svg class="mode-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>
+          Profit
+        </button>
+      </div>
+
       <div class="dash-hero">
-        <p class="dash-hero-label">Total revenue</p>
+        <p class="dash-hero-label" id="dashHeroLabel">Total bill amount</p>
         <p class="dash-hero-amount" id="dashHeroAmount">₹ 0.00</p>
         <p class="dash-hero-meta" id="dashHeroMeta">0 invoices</p>
       </div>
@@ -115,6 +126,17 @@
             <span>Notes (optional)</span>
             <textarea id="notes" rows="2" placeholder="Any remark for this invoice"></textarea>
           </label>
+
+          <div class="billing-summary-box">
+            <div class="summary-item">
+              <span class="summary-label">Bill Amount</span>
+              <strong class="summary-val" id="editorBillTotal">₹ 0.00</strong>
+            </div>
+            <div class="summary-item profit-item">
+              <span class="summary-label">Profit (Tracking)</span>
+              <strong class="summary-val" id="editorProfitTotal" style="color:var(--warr)">₹ 0.00</strong>
+            </div>
+          </div>
 
           <div class="editor-actions">
             <button type="button" class="btn btn-primary btn-block" id="btnSave">Save invoice</button>
@@ -228,8 +250,8 @@
 
   <script src="vendor/logo-data.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" crossorigin="anonymous"></script>
-  <script src="pdf.js?v=2.4"></script>
-  <script src="db.js?v=2.4"></script>
-  <script src="app.js?v=2.4"></script>
+  <script src="pdf.js?v=2.5"></script>
+  <script src="db.js?v=2.5"></script>
+  <script src="app.js?v=2.5"></script>
 </body>
 </html>
