@@ -9,17 +9,22 @@ const DRAFT_KEY = "indu_ro_draft";
 const els = {
   customerName: document.getElementById("customerName"),
   customerPhone: document.getElementById("customerPhone"),
+  customerAddress: document.getElementById("customerAddress"),
   refNo: document.getElementById("refNo"),
   issueDate: document.getElementById("issueDate"),
+  paymentMode: document.getElementById("paymentMode"),
   notes: document.getElementById("notes"),
   itemsList: document.getElementById("itemsList"),
   previewCustomerName: document.getElementById("previewCustomerName"),
   previewCustomerPhone: document.getElementById("previewCustomerPhone"),
+  previewCustomerAddress: document.getElementById("previewCustomerAddress"),
   previewRefNo: document.getElementById("previewRefNo"),
   previewDate: document.getElementById("previewDate"),
+  previewPayment: document.getElementById("previewPayment"),
   previewItems: document.getElementById("previewItems"),
   previewQtyTotal: document.getElementById("previewQtyTotal"),
-  previewSubtotal: document.getElementById("previewSubtotal"),
+  previewGrandTotal: document.getElementById("previewGrandTotal"),
+  previewWords: document.getElementById("previewWords"),
   previewNotes: document.getElementById("previewNotes"),
   invoice: document.getElementById("invoice"),
   toast: document.getElementById("toast"),
@@ -79,11 +84,11 @@ function generateRefNo() {
   return Date.now().toString().slice(-5);
 }
 
-function showToast(message) {
+function showToast(message, duration = 2400) {
   els.toast.textContent = message;
   els.toast.classList.add("show");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => els.toast.classList.remove("show"), 2200);
+  toastTimer = setTimeout(() => els.toast.classList.remove("show"), duration);
 }
 
 function parseNum(value) {
@@ -102,6 +107,121 @@ function parseIssueDate(iso) {
   const [y, m, d] = iso.split("-").map(Number);
   if (!y || !m || !d) return null;
   return new Date(y, m - 1, d);
+}
+
+function parseWarranty(warrantyText) {
+  if (warrantyText === undefined || warrantyText === null) {
+    return { value: 1, unit: "Year" };
+  }
+  const clean = String(warrantyText).trim().toLowerCase();
+  if (clean === "" || clean === "none" || clean === "no warranty" || clean === "na" || clean === "n/a" || clean === "0") {
+    return { value: "", unit: "Year" };
+  }
+  const yearMatch = clean.match(/(\d+)\s*y/);
+  const monthMatch = clean.match(/(\d+)\s*m/);
+  if (yearMatch) {
+    return { value: parseInt(yearMatch[1], 10), unit: "Year" };
+  }
+  if (monthMatch) {
+    return { value: parseInt(monthMatch[1], 10), unit: "Month" };
+  }
+  const numOnly = parseInt(clean, 10);
+  if (!isNaN(numOnly)) {
+    return { value: numOnly, unit: "Year" };
+  }
+  return { value: 1, unit: "Year" };
+}
+
+function buildWarrantyText(value, unit = "Year") {
+  if (value === "" || value === null || value === undefined) return "";
+  const num = parseInt(value, 10);
+  if (isNaN(num) || num <= 0) return "No Warranty";
+  const normalizedUnit = String(unit).toLowerCase().startsWith("m") ? "Month" : "Year";
+  const plural = num > 1 ? `${normalizedUnit}s` : normalizedUnit;
+  return `${num} ${plural}`;
+}
+
+function calcWarrantyValidity(issueDateIso, warrantyText) {
+  if (!issueDateIso || !warrantyText) return "";
+  const clean = String(warrantyText).trim().toLowerCase();
+  if (clean === "none" || clean === "no warranty" || clean === "na" || clean === "n/a" || clean === "0") return "";
+
+  const [y, m, d] = issueDateIso.split("-").map(Number);
+  if (!y || !m || !d) return "";
+
+  const date = new Date(y, m - 1, d);
+
+  const yearMatch = clean.match(/(\d+)\s*y/);
+  const monthMatch = clean.match(/(\d+)\s*m/);
+
+  if (yearMatch) {
+    const years = parseInt(yearMatch[1], 10);
+    date.setFullYear(date.getFullYear() + years);
+    date.setDate(date.getDate() - 1);
+  } else if (monthMatch) {
+    const months = parseInt(monthMatch[1], 10);
+    date.setMonth(date.getMonth() + months);
+    date.setDate(date.getDate() - 1);
+  } else {
+    return "";
+  }
+
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()}`;
+}
+
+function numberToWordsIndian(num) {
+  const n = Math.round(Number(num) * 100) / 100;
+  if (!Number.isFinite(n) || n === 0) return "Zero Rupees Only";
+
+  const a = [
+    "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
+    "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
+    "Seventeen", "Eighteen", "Nineteen"
+  ];
+  const b = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+
+  function convertTwoDigits(val) {
+    if (val < 20) return a[val];
+    const tens = Math.floor(val / 10);
+    const units = val % 10;
+    return b[tens] + (units ? "-" + a[units] : "");
+  }
+
+  function convertThreeDigits(val) {
+    const hundred = Math.floor(val / 100);
+    const rest = val % 100;
+    let res = "";
+    if (hundred > 0) res += a[hundred] + " Hundred";
+    if (rest > 0) res += (res ? " " : "") + convertTwoDigits(rest);
+    return res;
+  }
+
+  const intPart = Math.floor(n);
+  const paise = Math.round((n - intPart) * 100);
+
+  let crores = Math.floor(intPart / 10000000);
+  let rem = intPart % 10000000;
+  let lakhs = Math.floor(rem / 100000);
+  rem = rem % 100000;
+  let thousands = Math.floor(rem / 1000);
+  let hundreds = rem % 1000;
+
+  let words = "";
+  if (crores > 0) words += convertThreeDigits(crores) + " Crore ";
+  if (lakhs > 0) words += convertThreeDigits(lakhs) + " Lakh ";
+  if (thousands > 0) words += convertThreeDigits(thousands) + " Thousand ";
+  if (hundreds > 0) words += convertThreeDigits(hundreds) + " ";
+
+  words = words.trim();
+  let result = words ? words + " Rupees" : "";
+
+  if (paise > 0) {
+    const paiseWords = convertTwoDigits(paise) + " Paise";
+    result = result ? `${result} and ${paiseWords}` : `${paiseWords}`;
+  }
+
+  return (result ? result : "Zero Rupees") + " Only";
 }
 
 /* ---------- navigation ---------- */
@@ -131,13 +251,20 @@ function showView(view) {
 function getFormState() {
   return {
     id: currentId || crypto.randomUUID(),
-    customerName: els.customerName.value.trim(),
-    customerPhone: els.customerPhone.value.trim(),
-    refNo: els.refNo.value.trim(),
-    issueDate: els.issueDate.value,
-    notes: els.notes.value.trim(),
+    customerName: els.customerName ? els.customerName.value.trim() : "",
+    customerPhone: els.customerPhone ? els.customerPhone.value.trim() : "",
+    customerAddress: els.customerAddress ? els.customerAddress.value.trim() : "",
+    refNo: els.refNo ? els.refNo.value.trim() : "",
+    issueDate: els.issueDate ? els.issueDate.value : todayISO(),
+    paymentMode: els.paymentMode ? els.paymentMode.value.trim() : "Paid – UPI / Cash",
+    notes: els.notes ? els.notes.value.trim() : "",
     items: items.map((it) => ({
       name: it.name.trim(),
+      serialNo: (it.serialNo || "").trim(),
+      warrantyValue: it.warrantyValue !== undefined ? it.warrantyValue : "",
+      warrantyUnit: it.warrantyUnit || "Year",
+      warranty: (it.warranty || "").trim(),
+      validTill: (it.validTill || "").trim(),
       qty: parseNum(it.qty),
       price: parseNum(it.price),
     })),
@@ -157,10 +284,25 @@ function calcTotals(state) {
 
 /* ---------- items UI ---------- */
 
-function addItem(data = { name: "", qty: 1, price: "" }) {
+function addItem(data = { name: "", serialNo: "", warrantyValue: 1, warrantyUnit: "Year", warranty: "1 Year", validTill: "", qty: 1, price: "" }) {
+  const issueDate = els.issueDate ? els.issueDate.value : todayISO();
+  let warrantyValue = data.warrantyValue;
+  let warrantyUnit = data.warrantyUnit;
+  if (warrantyValue === undefined || warrantyUnit === undefined) {
+    const parsed = parseWarranty(data.warranty !== undefined ? data.warranty : "1 Year");
+    warrantyValue = parsed.value;
+    warrantyUnit = parsed.unit;
+  }
+  const warranty = buildWarrantyText(warrantyValue, warrantyUnit);
+  const validTill = data.validTill || calcWarrantyValidity(issueDate, warranty);
   items.push({
     id: crypto.randomUUID(),
     name: data.name || "",
+    serialNo: data.serialNo || "",
+    warrantyValue: warrantyValue,
+    warrantyUnit: warrantyUnit,
+    warranty: warranty,
+    validTill: validTill,
     qty: data.qty ?? 1,
     price: data.price ?? "",
   });
@@ -192,15 +334,35 @@ function renderItems() {
       </div>
       <div class="item-grid">
         <label class="field-name">
-          Product name
-          <input type="text" data-field="name" value="${escapeAttr(it.name)}" placeholder="e.g. RO Membrane" />
+          <span>Product name</span>
+          <input type="text" data-field="name" value="${escapeAttr(it.name)}" placeholder="e.g. Aqua RO machine" />
         </label>
+        <label class="field-serial">
+          <span>Serial No (optional)</span>
+          <input type="text" data-field="serialNo" value="${escapeAttr(it.serialNo)}" placeholder="e.g. SN-12345" />
+        </label>
+        <div class="field-warranty">
+          <div class="warranty-two-inputs">
+            <label>
+              <span>No . of Yr/month</span>
+              <input type="number" data-field="warrantyValue" min="0" step="1" inputmode="numeric" value="${escapeAttr(it.warrantyValue)}" placeholder="e.g. 1" />
+            </label>
+            <label>
+              <span>Month or Year</span>
+              <select data-field="warrantyUnit">
+                <option value="Year" ${it.warrantyUnit === "Year" ? "selected" : ""}>Year</option>
+                <option value="Month" ${it.warrantyUnit === "Month" ? "selected" : ""}>Month</option>
+              </select>
+            </label>
+          </div>
+          <span class="valid-till-hint" data-hint>${it.validTill ? `Valid till ${escapeHtml(it.validTill)}` : ""}</span>
+        </div>
         <label>
-          Qty
+          <span>Qty</span>
           <input type="number" data-field="qty" min="0" step="0.01" inputmode="decimal" value="${escapeAttr(it.qty)}" />
         </label>
         <label>
-          Price (₹)
+          <span>Price (₹)</span>
           <input type="number" data-field="price" min="0" step="0.01" inputmode="decimal" value="${escapeAttr(it.price)}" />
         </label>
       </div>
@@ -208,20 +370,29 @@ function renderItems() {
     `;
 
     const amountEl = card.querySelector("[data-amount]");
+    const hintEl = card.querySelector("[data-hint]");
     amountEl.textContent = formatMoney(parseNum(it.qty) * parseNum(it.price));
 
     card.querySelector('[data-action="remove"]').addEventListener("click", () => {
       removeItem(it.id);
     });
 
-    card.querySelectorAll("input").forEach((input) => {
-      input.addEventListener("input", () => {
-        const field = input.dataset.field;
-        it[field] = input.value;
-        amountEl.textContent = formatMoney(parseNum(it.qty) * parseNum(it.price));
-        updatePreview();
-        persistDraft();
-      });
+    const onFieldChange = (el) => {
+      const field = el.dataset.field;
+      it[field] = el.value;
+      if (field === "warrantyValue" || field === "warrantyUnit") {
+        it.warranty = buildWarrantyText(it.warrantyValue, it.warrantyUnit);
+        it.validTill = calcWarrantyValidity(els.issueDate.value, it.warranty);
+        hintEl.textContent = it.validTill ? `Valid till ${it.validTill}` : "";
+      }
+      amountEl.textContent = formatMoney(parseNum(it.qty) * parseNum(it.price));
+      updatePreview();
+      persistDraft();
+    };
+
+    card.querySelectorAll("input, select").forEach((control) => {
+      control.addEventListener("input", () => onFieldChange(control));
+      control.addEventListener("change", () => onFieldChange(control));
     });
 
     els.itemsList.appendChild(card);
@@ -248,32 +419,46 @@ function updatePreview() {
   const state = getFormState();
   const totals = calcTotals(state);
 
-  els.previewCustomerName.textContent = state.customerName || "—";
+  els.previewCustomerName.textContent = state.customerName || "Customer Name";
   els.previewCustomerPhone.textContent = state.customerPhone || "—";
+  els.previewCustomerAddress.textContent = state.customerAddress || "Customer address";
   els.previewRefNo.textContent = state.refNo || "—";
   els.previewDate.textContent = formatDateDisplay(state.issueDate);
+  els.previewPayment.textContent = state.paymentMode || "Paid – UPI / Cash";
 
   const filled = state.items.filter((it) => it.name || it.qty || it.price);
   if (filled.length === 0) {
     els.previewItems.innerHTML =
-      '<tr class="empty-row"><td colspan="5">No products added</td></tr>';
+      '<tr class="empty-row"><td colspan="6">No products added</td></tr>';
   } else {
     els.previewItems.innerHTML = filled
       .map((it, i) => {
         const amount = it.qty * it.price;
+        const serialHtml = it.serialNo
+          ? `<span class="sub">Serial no: ${escapeHtml(it.serialNo)}</span>`
+          : "";
+        const warrantyHtml = it.warranty
+          ? `<span class="warr">${escapeHtml(it.warranty)}</span>`
+          : "—";
+        const validityHtml = it.validTill
+          ? `<span class="sub">Valid till ${escapeHtml(it.validTill)}</span>`
+          : "";
+
         return `<tr>
-          <td class="col-sr">${i + 1}</td>
-          <td>${escapeHtml(it.name) || "—"}</td>
-          <td class="num">${formatQty(it.qty)}</td>
-          <td class="num">${formatMoney(it.price)}</td>
-          <td class="num">${formatMoney(amount)}</td>
+          <td>${i + 1}</td>
+          <td>${escapeHtml(it.name) || "—"}${serialHtml}</td>
+          <td>${warrantyHtml}${validityHtml}</td>
+          <td class="n">${formatQty(it.qty)}</td>
+          <td class="n">${formatMoney(it.price)}</td>
+          <td class="n">${formatMoney(amount)}</td>
         </tr>`;
       })
       .join("");
   }
 
   els.previewQtyTotal.textContent = formatQty(totals.qtyTotal);
-  els.previewSubtotal.textContent = formatMoney(totals.total);
+  els.previewGrandTotal.textContent = `₹ ${formatMoney(totals.total)}`;
+  els.previewWords.textContent = `Amount in words: ${numberToWordsIndian(totals.total)}`;
 
   if (state.notes) {
     els.previewNotes.hidden = false;
@@ -322,18 +507,36 @@ function applyState(state) {
   currentId = state.id || null;
   els.customerName.value = state.customerName || "";
   els.customerPhone.value = state.customerPhone || "";
+  if (els.customerAddress) els.customerAddress.value = state.customerAddress || "";
   els.refNo.value = state.refNo || generateRefNo();
   els.issueDate.value = state.issueDate || todayISO();
+  if (els.paymentMode) els.paymentMode.value = state.paymentMode || "Paid – UPI / Cash";
   els.notes.value = state.notes || "";
   items = (state.items && state.items.length
     ? state.items
-    : [{ name: "", qty: 1, price: "" }]
-  ).map((it) => ({
-    id: crypto.randomUUID(),
-    name: it.name || "",
-    qty: it.qty ?? 1,
-    price: it.price ?? "",
-  }));
+    : [{ name: "", serialNo: "", warrantyValue: 1, warrantyUnit: "Year", warranty: "1 Year", validTill: "", qty: 1, price: "" }]
+  ).map((it) => {
+    let warrantyValue = it.warrantyValue;
+    let warrantyUnit = it.warrantyUnit;
+    if (warrantyValue === undefined || warrantyUnit === undefined) {
+      const parsed = parseWarranty(it.warranty !== undefined ? it.warranty : "1 Year");
+      warrantyValue = parsed.value;
+      warrantyUnit = parsed.unit;
+    }
+    const warranty = buildWarrantyText(warrantyValue, warrantyUnit);
+    const validTill = it.validTill || calcWarrantyValidity(state.issueDate || todayISO(), warranty);
+    return {
+      id: crypto.randomUUID(),
+      name: it.name || "",
+      serialNo: it.serialNo || "",
+      warrantyValue: warrantyValue,
+      warrantyUnit: warrantyUnit,
+      warranty: warranty,
+      validTill: validTill,
+      qty: it.qty ?? 1,
+      price: it.price ?? "",
+    };
+  });
   renderItems();
   updatePreview();
 }
@@ -344,10 +547,12 @@ function newInvoice() {
     id: currentId,
     customerName: "",
     customerPhone: "",
+    customerAddress: "",
     refNo: generateRefNo(),
     issueDate: todayISO(),
+    paymentMode: "Paid – UPI / Cash",
     notes: "",
-    items: [{ name: "", qty: 1, price: "" }],
+    items: [{ name: "", serialNo: "", warrantyValue: 1, warrantyUnit: "Year", warranty: "1 Year", validTill: "", qty: 1, price: "" }],
   });
   persistDraft();
   showToast("New invoice ready");
@@ -501,12 +706,14 @@ function renderDashboard() {
         </div>
       </button>
       <div class="dash-item-actions">
+        <button type="button" class="dash-act dash-act-wa" data-act="whatsapp">WhatsApp</button>
         <button type="button" class="dash-act" data-act="open">Open</button>
         <button type="button" class="dash-act dash-act-danger" data-act="delete">Delete</button>
       </div>
     `;
     li.querySelector(".dash-item-main").addEventListener("click", () => openInvoice(inv));
     li.querySelector('[data-act="open"]').addEventListener("click", () => openInvoice(inv));
+    li.querySelector('[data-act="whatsapp"]').addEventListener("click", () => shareWhatsAppInvoice(inv));
     li.querySelector('[data-act="delete"]').addEventListener("click", () => {
       if (confirm(`Delete invoice #${inv.refNo}?`)) deleteInvoice(inv.id);
     });
@@ -524,14 +731,109 @@ function setPeriod(period) {
   renderDashboard();
 }
 
+/* ---------- whatsapp share ---------- */
+
+async function shareWhatsAppInvoice(targetState = null) {
+  const isTargetProvided = !!targetState;
+  const state = isTargetProvided ? targetState : getFormState();
+  const totals = calcTotals(state);
+  const customerName = state.customerName || "Customer";
+  const totalStr = `₹ ${formatMoney(totals.total)}`;
+
+  const message = `Hi ${customerName},
+Details of your Sale Invoice from INDU Enterprises
+Invoice Amount: ${totalStr}
+Thank you for doing business with us,
+INDU Enterprises
+6382182592 | 7904015662`;
+
+  let phone = (state.customerPhone || "").replace(/\D/g, "");
+  if (phone.length === 10) phone = "91" + phone;
+
+  const filename = `INDU-RO-Invoice-${state.refNo || "bill"}.pdf`;
+
+  // Build PDF synchronously in memory (<10ms) so browser user gesture is preserved
+  let pdfBlob = null;
+  try {
+    if (typeof buildInvoicePdfBlob === "function") {
+      pdfBlob = buildInvoicePdfBlob(state, totals);
+    }
+  } catch (err) {
+    console.error("PDF generation error:", err);
+  }
+
+  // 1. Mobile & Web Share API support:
+  // When supported (Android Chrome, iOS Safari), navigator.share attaches the PDF file AND text directly into WhatsApp!
+  if (pdfBlob && typeof File !== "undefined" && typeof navigator !== "undefined" && navigator.canShare) {
+    try {
+      const pdfFile = new File([pdfBlob], filename, {
+        type: "application/pdf",
+        lastModified: Date.now(),
+      });
+
+      if (navigator.canShare({ files: [pdfFile] })) {
+        await navigator.share({
+          title: `Invoice #${state.refNo || "bill"}`,
+          text: message,
+          files: [pdfFile],
+        });
+        showToast("Invoice PDF shared to WhatsApp!");
+        return;
+      }
+    } catch (shareErr) {
+      if (shareErr.name === "AbortError") {
+        // User cancelled the share dialog
+        return;
+      }
+      console.warn("Native share failed, proceeding with fallback:", shareErr);
+    }
+  }
+
+  // 2. Desktop fallback (WhatsApp Web):
+  // WhatsApp Web cannot programmatically accept files via URL schemes.
+  // We automatically download the PDF document to the device and open WhatsApp with the pre-filled message.
+  if (pdfBlob && typeof triggerBlobDownload === "function") {
+    triggerBlobDownload(pdfBlob, filename);
+  }
+
+  const encodedMsg = encodeURIComponent(message);
+  const waUrl = phone
+    ? `https://api.whatsapp.com/send?phone=${phone}&text=${encodedMsg}`
+    : `https://api.whatsapp.com/send?text=${encodedMsg}`;
+
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (isMobile) {
+    window.location.href = waUrl;
+  } else {
+    window.open(waUrl, "_blank");
+  }
+
+  showToast("Invoice PDF downloaded! Attach it in WhatsApp chat (📎 > Document)", 4500);
+}
+
 /* ---------- init ---------- */
 
 function bindEvents() {
-  ["customerName", "customerPhone", "issueDate", "notes"].forEach((key) => {
-    els[key].addEventListener("input", () => {
-      updatePreview();
-      persistDraft();
-    });
+  [
+    "customerName",
+    "customerPhone",
+    "customerAddress",
+    "issueDate",
+    "paymentMode",
+    "notes",
+  ].forEach((key) => {
+    if (els[key]) {
+      els[key].addEventListener("input", () => {
+        if (key === "issueDate") {
+          items.forEach((it) => {
+            it.validTill = calcWarrantyValidity(els.issueDate.value, it.warranty);
+          });
+          renderItems();
+        }
+        updatePreview();
+        persistDraft();
+      });
+    }
   });
 
   document.getElementById("btnAddItem").addEventListener("click", () => addItem());
@@ -544,6 +846,11 @@ function bindEvents() {
   document.getElementById("btnDownload").addEventListener("click", downloadPdf);
   document.getElementById("btnPrintMobile").addEventListener("click", printInvoice);
   document.getElementById("btnDownloadMobile").addEventListener("click", downloadPdf);
+
+  const btnWA = document.getElementById("btnWhatsApp");
+  if (btnWA) btnWA.addEventListener("click", () => shareWhatsAppInvoice());
+  const btnWAMobile = document.getElementById("btnWhatsAppMobile");
+  if (btnWAMobile) btnWAMobile.addEventListener("click", () => shareWhatsAppInvoice());
 
   els.customerPhone.addEventListener("input", () => {
     els.customerPhone.value = els.customerPhone.value.replace(/\D/g, "").slice(0, 10);
@@ -569,12 +876,39 @@ function init() {
     currentId = crypto.randomUUID();
     applyState({
       id: currentId,
-      customerName: "",
-      customerPhone: "",
-      refNo: generateRefNo(),
+      customerName: "Raju",
+      customerPhone: "7678904532",
+      customerAddress: "Customer address",
+      refNo: "38044",
       issueDate: todayISO(),
+      paymentMode: "Paid – UPI / Cash",
       notes: "",
-      items: [{ name: "", qty: 1, price: "" }],
+      items: [
+        {
+          name: "Aqua RO machine",
+          serialNo: "Enter",
+          warranty: "1 Year",
+          validTill: calcWarrantyValidity(todayISO(), "1 Year"),
+          qty: 1,
+          price: 10000,
+        },
+        {
+          name: "Inverter",
+          serialNo: "Enter",
+          warranty: "1 Year",
+          validTill: calcWarrantyValidity(todayISO(), "1 Year"),
+          qty: 1,
+          price: 4000,
+        },
+        {
+          name: "Battery",
+          serialNo: "Enter",
+          warranty: "2 Years",
+          validTill: calcWarrantyValidity(todayISO(), "2 Years"),
+          qty: 1,
+          price: 19999.78,
+        },
+      ],
     });
   }
   if (typeof applyLogoDataUrls === "function") applyLogoDataUrls();

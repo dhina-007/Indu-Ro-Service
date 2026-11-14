@@ -75,6 +75,11 @@
             </label>
           </div>
 
+          <label class="field">
+            <span>Customer address</span>
+            <input type="text" id="customerAddress" placeholder="Enter customer address" />
+          </label>
+
           <div class="field-row">
             <label class="field">
               <span>Ref No</span>
@@ -85,6 +90,11 @@
               <input type="date" id="issueDate" />
             </label>
           </div>
+
+          <label class="field">
+            <span>Payment mode</span>
+            <input type="text" id="paymentMode" placeholder="Paid – UPI / Cash" value="Paid – UPI / Cash" />
+          </label>
 
           <div class="items-header">
             <h3>Products</h3>
@@ -100,6 +110,12 @@
 
           <div class="editor-actions">
             <button type="button" class="btn btn-primary btn-block" id="btnSave">Save invoice</button>
+            <div class="wa-action-wrap">
+              <button type="button" class="btn btn-whatsapp" id="btnWhatsApp">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0012.04 2zm.01 1.67c2.2 0 4.26.86 5.82 2.41a8.17 8.17 0 012.41 5.83c0 4.54-3.7 8.24-8.24 8.24-1.48 0-2.93-.4-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.196 8.196 0 01-1.26-4.38c0-4.54 3.7-8.24 8.24-8.24zm4.52 11.66c-.25-.13-1.47-.72-1.7-.81-.23-.08-.39-.13-.56.13-.17.25-.64.81-.79.97-.14.17-.29.19-.54.06-.25-.13-1.06-.39-2.02-1.25-.75-.67-1.26-1.5-1.4-1.75-.15-.25-.02-.39.11-.51.11-.11.25-.29.37-.44.13-.14.17-.25.25-.42.08-.17.04-.31-.02-.44-.06-.13-.56-1.35-.77-1.85-.2-.49-.41-.42-.56-.43h-.48c-.17 0-.44.06-.67.31-.23.25-.87.85-.87 2.08 0 1.22.89 2.41 1.02 2.58.13.17 1.76 2.68 4.26 3.76.6.26 1.06.41 1.42.53.6.19 1.15.16 1.58.1.48-.07 1.47-.6 1.68-1.18.21-.58.21-1.07.15-1.18-.07-.12-.23-.19-.48-.31z"/></svg>
+                Share on WhatsApp
+              </button>
+            </div>
             <div class="btn-pair">
               <button type="button" class="btn btn-secondary" id="btnPrint">Print</button>
               <button type="button" class="btn btn-secondary" id="btnDownload">Download PDF</button>
@@ -108,80 +124,79 @@
         </section>
 
         <section class="panel preview-wrap" aria-label="Invoice preview">
-          <div class="invoice" id="invoice">
-            <div class="inv-accent" aria-hidden="true"></div>
-
-            <div class="inv-header">
-              <div class="inv-company">
-                <div class="inv-company-text">
-                  <p class="inv-doc-label">Tax Invoice</p>
-                  <h1>INDU RO SERVICE</h1>
-                  <p class="inv-address">RO Water Purifier Sales &amp; Service</p>
-                  <p class="inv-phone">
-                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1.1-.2 1.2.4 2.5.6 3.8.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.6.6 3.8.1.4 0 .8-.3 1.1L6.6 10.8z"/></svg>
-                    7904015662 | 6382182592
-                  </p>
-                </div>
-                <img src="assets/logo.png" alt="INDU RO &amp; SERVICES" class="inv-logo" />
+          <div class="sheet invoice" id="invoice">
+            <header>
+              <div>
+                <div class="tag">TAX INVOICE</div>
+                <h1 id="previewCompanyName">INDU RO SERVICE</h1>
+                <div class="mute">RO Water Purifier Sales &amp; Service</div>
+                <div style="color:var(--brand);font-weight:600">7904015662 | 6382182592</div>
               </div>
-            </div>
-
-            <div class="inv-meta">
-              <div class="inv-billto">
-                <span class="meta-label">Bill To</span>
-                <strong id="previewCustomerName">—</strong>
-                <p class="inv-phone">
-                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1.1-.2 1.2.4 2.5.6 3.8.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.6.6 3.8.1.4 0 .8-.3 1.1L6.6 10.8z"/></svg>
-                  <span id="previewCustomerPhone">—</span>
-                </p>
+              <div class="right">
+                <img src="assets/logo.png" alt="INDU RO" class="inv-logo" />
               </div>
-              <div class="inv-refs">
-                <div class="inv-ref-card">
-                  <span class="meta-label">Ref No</span>
-                  <span class="inv-ref-value" id="previewRefNo">—</span>
-                </div>
-                <div class="inv-ref-card">
-                  <span class="meta-label">Date of Issue</span>
-                  <span class="inv-ref-value" id="previewDate">—</span>
-                </div>
-              </div>
-            </div>
+            </header>
 
-            <div class="inv-table-wrap">
+            <section class="meta">
+              <div>
+                <div class="tag">BILL TO</div>
+                <b id="previewCustomerName">Customer Name</b><br />
+                <span style="color:var(--brand);font-weight:600" id="previewCustomerPhone">—</span><br />
+                <span class="mute" id="previewCustomerAddress">Customer address</span>
+              </div>
+              <div class="right">
+                <div class="tag">INVOICE NO</div><b id="previewRefNo">38044</b>
+                <div class="tag" style="margin-top:6px">DATE OF ISSUE</div><b id="previewDate">14/11/2026</b>
+                <div class="tag" style="margin-top:6px">PAYMENT</div><span id="previewPayment">Paid – UPI / Cash</span>
+              </div>
+            </section>
+
+            <div class="scroll">
               <table class="inv-table">
                 <thead>
                   <tr>
-                    <th class="col-sr">SR</th>
-                    <th class="col-name">Name</th>
-                    <th class="col-qty">Qty</th>
-                    <th class="col-price">Price</th>
-                    <th class="col-amt">Amount</th>
+                    <th>#</th>
+                    <th>Item</th>
+                    <th>Warranty</th>
+                    <th class="n">Qty</th>
+                    <th class="n">Price (₹)</th>
+                    <th class="n">Amount (₹)</th>
                   </tr>
                 </thead>
                 <tbody id="previewItems">
                   <tr class="empty-row">
-                    <td colspan="5">No products added</td>
+                    <td colspan="6">No products added</td>
                   </tr>
                 </tbody>
                 <tfoot>
-                  <tr class="total-row">
-                    <td colspan="2"><strong>Total</strong></td>
-                    <td class="num" id="previewQtyTotal">0</td>
+                  <tr>
+                    <td colspan="3">Total</td>
+                    <td class="n" id="previewQtyTotal">0</td>
                     <td></td>
-                    <td class="num" id="previewSubtotal">0.00</td>
+                    <td class="n"></td>
+                  </tr>
+                  <tr class="grand">
+                    <td colspan="5" class="n">Grand total</td>
+                    <td class="n" id="previewGrandTotal">₹ 0.00</td>
                   </tr>
                 </tfoot>
               </table>
             </div>
 
+            <p class="words" id="previewWords">Amount in words: Zero Rupees Only</p>
+
             <p class="inv-notes" id="previewNotes" hidden></p>
 
-            <footer class="inv-footer">
-              Thanks for doing business with us!
-            </footer>
+            <p class="thanks">Thanks for doing business with us!</p>
           </div>
 
           <div class="preview-actions no-print">
+            <div class="wa-action-wrap">
+              <button type="button" class="btn btn-whatsapp" id="btnWhatsAppMobile">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0012.04 2zm.01 1.67c2.2 0 4.26.86 5.82 2.41a8.17 8.17 0 012.41 5.83c0 4.54-3.7 8.24-8.24 8.24-1.48 0-2.93-.4-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.196 8.196 0 01-1.26-4.38c0-4.54 3.7-8.24 8.24-8.24zm4.52 11.66c-.25-.13-1.47-.72-1.7-.81-.23-.08-.39-.13-.56.13-.17.25-.64.81-.79.97-.14.17-.29.19-.54.06-.25-.13-1.06-.39-2.02-1.25-.75-.67-1.26-1.5-1.4-1.75-.15-.25-.02-.39.11-.51.11-.11.25-.29.37-.44.13-.14.17-.25.25-.42.08-.17.04-.31-.02-.44-.06-.13-.56-1.35-.77-1.85-.2-.49-.41-.42-.56-.43h-.48c-.17 0-.44.06-.67.31-.23.25-.87.85-.87 2.08 0 1.22.89 2.41 1.02 2.58.13.17 1.76 2.68 4.26 3.76.6.26 1.06.41 1.42.53.6.19 1.15.16 1.58.1.48-.07 1.47-.6 1.68-1.18.21-.58.21-1.07.15-1.18-.07-.12-.23-.19-.48-.31z"/></svg>
+                Share on WhatsApp
+              </button>
+            </div>
             <button type="button" class="btn btn-primary btn-block" id="btnPrintMobile">Print invoice</button>
             <button type="button" class="btn btn-secondary btn-block" id="btnDownloadMobile">Download PDF</button>
           </div>

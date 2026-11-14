@@ -113,9 +113,10 @@ async function captureInvoiceAsPdfBlob() {
   const el = document.getElementById("invoice");
   if (!el) throw new Error("Invoice missing");
 
-  const wasHidden = els.viewCreate.classList.contains("hidden");
-  const prevView = currentView;
-  if (wasHidden) showView("create");
+  const viewCreateEl = document.getElementById("viewCreate");
+  const wasHidden = viewCreateEl ? viewCreateEl.classList.contains("hidden") : false;
+  const prevView = typeof currentView !== "undefined" ? currentView : "dashboard";
+  if (wasHidden && typeof showView === "function") showView("create");
 
   const prevMax = el.style.maxWidth;
   const prevWidth = el.style.width;
@@ -125,8 +126,8 @@ async function captureInvoiceAsPdfBlob() {
   const prevRadius = el.style.borderRadius;
 
   // Match print layout width on A4
-  el.style.maxWidth = "720px";
-  el.style.width = "720px";
+  el.style.maxWidth = "780px";
+  el.style.width = "780px";
   el.style.margin = "0 auto";
   el.style.border = "none";
   el.style.boxShadow = "none";
@@ -156,12 +157,14 @@ async function captureInvoiceAsPdfBlob() {
         const data = window.INDU_LOGO_DATA;
         const cloneInv = doc.getElementById("invoice");
         if (cloneInv) {
-          cloneInv.style.maxWidth = "720px";
-          cloneInv.style.width = "720px";
+          cloneInv.style.maxWidth = "780px";
+          cloneInv.style.width = "780px";
           cloneInv.style.border = "none";
+          cloneInv.style.borderTop = "6px solid #0b7fc4";
           cloneInv.style.boxShadow = "none";
           cloneInv.style.borderRadius = "0";
           cloneInv.style.margin = "0";
+          cloneInv.style.padding = "24px 30px";
         }
         if (data && data.dataUrl) {
           doc.querySelectorAll(".inv-logo").forEach((img) => {
@@ -255,12 +258,12 @@ function assembleImagePdf(stream, jpegBytes, imgW, imgH, pageW, pageH) {
 }
 
 /**
- * Fallback — same Tax Invoice layout as print (no Grand Total / signature).
+ * Fallback — exact same Tax Invoice layout matching new invoice design.
  */
 function buildInvoicePdfBlob(state, totals) {
   const pageW = 595;
   const pageH = 842;
-  const m = 40;
+  const m = 36;
   const L = m;
   const R = pageW - m;
   const W = R - L;
@@ -280,7 +283,7 @@ function buildInvoicePdfBlob(state, totals) {
       const size = readJpegSize(logoBytes);
       logoPixelW = size.width;
       logoPixelH = size.height;
-      const max = 72;
+      const max = 70;
       const scale = Math.min(max / size.width, max / size.height);
       drawLogoW = Math.round(size.width * scale);
       drawLogoH = Math.round(size.height * scale);
@@ -289,36 +292,33 @@ function buildInvoicePdfBlob(state, totals) {
     }
   }
 
-  // Top accent (light blue bar)
-  ops.push(`${rgb(79, 195, 247)} rg`);
-  ops.push(`0 ${pageH - 14} ${pageW} 14 re f`);
-
-  // Header bg
-  ops.push(`${rgb(247, 251, 254)} rg`);
-  ops.push(`0 ${pageH - 118} ${pageW} 104 re f`);
+  // Top accent bar (#0b7fc4)
+  ops.push(`${rgb(11, 127, 196)} rg`);
+  ops.push(`0 ${pageH - 6} ${pageW} 6 re f`);
 
   let y = pageH - 36;
 
+  // Header Left
   ops.push("BT");
-  ops.push(`/F2 8 Tf ${rgb(2, 136, 209)} rg`);
+  ops.push(`/F2 8 Tf ${rgb(11, 127, 196)} rg`);
   ops.push(`1 0 0 1 ${L} ${y} Tm (${pdfEscape("TAX INVOICE")}) Tj`);
   ops.push("ET");
 
   y -= 18;
   ops.push("BT");
-  ops.push(`/F2 16 Tf ${rgb(55, 71, 79)} rg`);
+  ops.push(`/F2 16 Tf ${rgb(29, 42, 53)} rg`);
   ops.push(`1 0 0 1 ${L} ${y} Tm (${pdfEscape("INDU RO SERVICE")}) Tj`);
   ops.push("ET");
 
   y -= 14;
   ops.push("BT");
-  ops.push(`/F1 9 Tf ${rgb(144, 164, 174)} rg`);
+  ops.push(`/F1 9 Tf ${rgb(107, 122, 136)} rg`);
   ops.push(`1 0 0 1 ${L} ${y} Tm (${pdfEscape("RO Water Purifier Sales & Service")}) Tj`);
   ops.push("ET");
 
   y -= 14;
   ops.push("BT");
-  ops.push(`/F2 9 Tf ${rgb(2, 136, 209)} rg`);
+  ops.push(`/F2 9.5 Tf ${rgb(11, 127, 196)} rg`);
   ops.push(`1 0 0 1 ${L} ${y} Tm (${pdfEscape("7904015662 | 6382182592")}) Tj`);
   ops.push("ET");
 
@@ -328,67 +328,93 @@ function buildInvoicePdfBlob(state, totals) {
     ops.push(`q ${drawLogoW} 0 0 ${drawLogoH} ${lx} ${ly} cm /Im1 Do Q`);
   }
 
-  // Divider under header
-  ops.push(`${rgb(179, 229, 252)} RG 0.8 w`);
-  ops.push(`${L} ${pageH - 118} m ${R} ${pageH - 118} l S`);
+  // Meta Section Box
+  y -= 22;
+  const metaBoxH = 68;
+  ops.push(`${rgb(247, 250, 252)} rg`);
+  ops.push(`${L} ${y - metaBoxH + 12} ${W} ${metaBoxH} re f`);
+  ops.push(`${rgb(219, 230, 238)} RG 0.8 w`);
+  ops.push(`${L} ${y - metaBoxH + 12} ${W} ${metaBoxH} re S`);
 
-  // Bill To / Refs
-  y = pageH - 140;
+  const metaL = L + 12;
+  const metaR = R - 130;
+  let my = y;
+
   ops.push("BT");
-  ops.push(`/F2 8 Tf ${rgb(2, 136, 209)} rg`);
-  ops.push(`1 0 0 1 ${L} ${y} Tm (${pdfEscape("BILL TO")}) Tj`);
-  ops.push(`1 0 0 1 ${R - 120} ${y} Tm (${pdfEscape("REF NO")}) Tj`);
+  ops.push(`/F2 8 Tf ${rgb(11, 127, 196)} rg`);
+  ops.push(`1 0 0 1 ${metaL} ${my} Tm (${pdfEscape("BILL TO")}) Tj`);
+  ops.push(`1 0 0 1 ${metaR} ${my} Tm (${pdfEscape("INVOICE NO")}) Tj`);
   ops.push("ET");
 
-  y -= 15;
+  my -= 13;
   ops.push("BT");
-  ops.push(`/F2 12 Tf ${rgb(55, 71, 79)} rg`);
-  ops.push(`1 0 0 1 ${L} ${y} Tm (${pdfEscape(state.customerName || "-")}) Tj`);
-  ops.push(`1 0 0 1 ${R - 120} ${y} Tm (${pdfEscape(String(state.refNo || "-"))}) Tj`);
+  ops.push(`/F2 11 Tf ${rgb(29, 42, 53)} rg`);
+  ops.push(`1 0 0 1 ${metaL} ${my} Tm (${pdfEscape(state.customerName || "-")}) Tj`);
+  ops.push(`1 0 0 1 ${metaR} ${my} Tm (${pdfEscape(String(state.refNo || "-"))}) Tj`);
   ops.push("ET");
 
-  y -= 14;
+  my -= 13;
   ops.push("BT");
-  ops.push(`/F2 9 Tf ${rgb(2, 136, 209)} rg`);
-  ops.push(`1 0 0 1 ${L} ${y} Tm (${pdfEscape(state.customerPhone || "-")}) Tj`);
-  ops.push(`/F2 8 Tf ${rgb(2, 136, 209)} rg`);
-  ops.push(`1 0 0 1 ${R - 120} ${y + 14} Tm (${pdfEscape("DATE OF ISSUE")}) Tj`);
-  ops.push(`/F2 12 Tf ${rgb(55, 71, 79)} rg`);
-  ops.push(`1 0 0 1 ${R - 120} ${y} Tm (${pdfEscape(formatDateDisplay(state.issueDate))}) Tj`);
+  ops.push(`/F2 9 Tf ${rgb(11, 127, 196)} rg`);
+  ops.push(`1 0 0 1 ${metaL} ${my} Tm (${pdfEscape(state.customerPhone || "-")}) Tj`);
+  ops.push(`/F2 7.5 Tf ${rgb(11, 127, 196)} rg`);
+  ops.push(`1 0 0 1 ${metaR} ${my} Tm (${pdfEscape("DATE OF ISSUE")}) Tj`);
+  ops.push("ET");
+
+  my -= 12;
+  ops.push("BT");
+  ops.push(`/F1 8.5 Tf ${rgb(107, 122, 136)} rg`);
+  ops.push(`1 0 0 1 ${metaL} ${my} Tm (${pdfEscape(state.customerAddress || "Customer address")}) Tj`);
+  ops.push(`/F2 9.5 Tf ${rgb(29, 42, 53)} rg`);
+  ops.push(`1 0 0 1 ${metaR} ${my} Tm (${pdfEscape(formatDateDisplay(state.issueDate))}) Tj`);
+  ops.push("ET");
+
+  my -= 11;
+  ops.push("BT");
+  ops.push(`/F2 7.5 Tf ${rgb(11, 127, 196)} rg`);
+  ops.push(`1 0 0 1 ${metaR} ${my} Tm (${pdfEscape("PAYMENT")}) Tj`);
+  ops.push("ET");
+
+  my -= 10;
+  ops.push("BT");
+  ops.push(`/F1 8.5 Tf ${rgb(29, 42, 53)} rg`);
+  ops.push(`1 0 0 1 ${metaR} ${my} Tm (${pdfEscape(state.paymentMode || "Paid – UPI / Cash")}) Tj`);
   ops.push("ET");
 
   // Table
-  y -= 28;
+  y = my - 24;
   const colSr = L + 8;
-  const colName = L + 36;
-  const colQty = R - 160;
-  const colPrice = R - 95;
+  const colName = L + 28;
+  const colWarr = L + 175;
+  const colQty = R - 165;
+  const colPrice = R - 100;
   const colAmt = R - 8;
 
   const rightText = (xRight, ty, text, size, bold) => {
-    const approx = String(text).length * size * 0.5;
+    const approx = String(text).length * size * 0.52;
     ops.push("BT");
-    ops.push(`${bold ? "/F2" : "/F1"} ${size} Tf ${rgb(55, 71, 79)} rg`);
+    ops.push(`${bold ? "/F2" : "/F1"} ${size} Tf ${rgb(29, 42, 53)} rg`);
     ops.push(`1 0 0 1 ${(xRight - approx).toFixed(1)} ${ty} Tm (${pdfEscape(text)}) Tj`);
     ops.push("ET");
   };
 
-  ops.push(`${rgb(227, 242, 253)} rg`);
-  ops.push(`${L} ${y - 7} ${W} 22 re f`);
+  ops.push(`${rgb(234, 245, 252)} rg`);
+  ops.push(`${L} ${y - 6} ${W} 20 re f`);
   ops.push("BT /F2 8 Tf");
-  ops.push(`${rgb(84, 110, 122)} rg`);
-  ops.push(`1 0 0 1 ${colSr} ${y} Tm (SR) Tj`);
-  ops.push(`1 0 0 1 ${colName} ${y} Tm (NAME) Tj`);
+  ops.push(`${rgb(68, 88, 106)} rg`);
+  ops.push(`1 0 0 1 ${colSr} ${y} Tm (#) Tj`);
+  ops.push(`1 0 0 1 ${colName} ${y} Tm (Item) Tj`);
+  ops.push(`1 0 0 1 ${colWarr} ${y} Tm (Warranty) Tj`);
   ops.push("ET");
-  rightText(colQty, y, "QTY", 8, true);
-  rightText(colPrice, y, "PRICE", 8, true);
-  rightText(colAmt, y, "AMOUNT", 8, true);
+  rightText(colQty, y, "Qty", 8, true);
+  rightText(colPrice, y, "Price (Rs)", 8, true);
+  rightText(colAmt, y, "Amount (Rs)", 8, true);
 
-  y -= 24;
+  y -= 22;
 
   if (!filled.length) {
-    ops.push("BT /F1 10 Tf");
-    ops.push(`${rgb(158, 158, 158)} rg`);
+    ops.push("BT /F1 9.5 Tf");
+    ops.push(`${rgb(107, 122, 136)} rg`);
     ops.push(`1 0 0 1 ${colName} ${y} Tm (No products added) Tj`);
     ops.push("ET");
     y -= 18;
@@ -396,34 +422,76 @@ function buildInvoicePdfBlob(state, totals) {
     filled.forEach((it, i) => {
       if (y < 120) return;
       const amount = parseNum(it.qty) * parseNum(it.price);
-      const name = String(it.name || "-").substring(0, 40);
-      ops.push("BT /F1 10 Tf");
-      ops.push(`${rgb(66, 66, 66)} rg`);
+      const name = String(it.name || "-").substring(0, 30);
+      const warr = String(it.warranty || "-").substring(0, 16);
+
+      ops.push("BT /F1 9.5 Tf");
+      ops.push(`${rgb(29, 42, 53)} rg`);
       ops.push(`1 0 0 1 ${colSr} ${y} Tm (${pdfEscape(String(i + 1))}) Tj`);
       ops.push(`1 0 0 1 ${colName} ${y} Tm (${pdfEscape(name)}) Tj`);
       ops.push("ET");
-      rightText(colQty, y, formatQty(it.qty), 10, false);
-      rightText(colPrice, y, formatMoney(it.price), 10, false);
-      rightText(colAmt, y, formatMoney(amount), 10, false);
-      y -= 18;
+
+      ops.push("BT /F2 8.5 Tf");
+      ops.push(`${rgb(10, 122, 70)} rg`);
+      ops.push(`1 0 0 1 ${colWarr} ${y} Tm (${pdfEscape(warr)}) Tj`);
+      ops.push("ET");
+
+      rightText(colQty, y, formatQty(it.qty), 9.5, false);
+      rightText(colPrice, y, formatMoney(it.price), 9.5, false);
+      rightText(colAmt, y, formatMoney(amount), 9.5, false);
+
+      // Sublines (Serial no / Valid till)
+      if (it.serialNo || it.validTill) {
+        y -= 11;
+        ops.push("BT /F1 7.5 Tf");
+        ops.push(`${rgb(107, 122, 136)} rg`);
+        if (it.serialNo) {
+          ops.push(`1 0 0 1 ${colName} ${y} Tm (${pdfEscape("Serial no: " + it.serialNo)}) Tj`);
+        }
+        if (it.validTill) {
+          ops.push(`1 0 0 1 ${colWarr} ${y} Tm (${pdfEscape("Valid till " + it.validTill)}) Tj`);
+        }
+        ops.push("ET");
+      }
+
+      ops.push(`${rgb(219, 230, 238)} RG 0.5 w`);
+      ops.push(`${L} ${y - 4} m ${R} ${y - 4} l S`);
+
+      y -= 17;
     });
   }
 
-  // Total row only
-  y -= 4;
-  ops.push(`${rgb(227, 242, 253)} rg`);
-  ops.push(`${L} ${y - 8} ${W} 24 re f`);
-  ops.push("BT /F2 11 Tf");
-  ops.push(`${rgb(55, 71, 79)} rg`);
+  // Total row
+  ops.push(`${rgb(234, 245, 252)} rg`);
+  ops.push(`${L} ${y - 6} ${W} 18 re f`);
+  ops.push("BT /F2 9.5 Tf");
+  ops.push(`${rgb(29, 42, 53)} rg`);
   ops.push(`1 0 0 1 ${colName} ${y} Tm (Total) Tj`);
   ops.push("ET");
-  rightText(colQty, y, formatQty(totals.qtyTotal), 11, true);
-  rightText(colAmt, y, formatMoney(totals.total), 11, true);
+  rightText(colQty, y, formatQty(totals.qtyTotal), 9.5, true);
+
+  // Grand Total row
+  y -= 18;
+  ops.push(`${rgb(234, 245, 252)} rg`);
+  ops.push(`${L} ${y - 6} ${W} 22 re f`);
+  ops.push("BT /F2 11 Tf");
+  ops.push(`${rgb(29, 42, 53)} rg`);
+  ops.push(`1 0 0 1 ${colPrice - 60} ${y} Tm (Grand total) Tj`);
+  ops.push("ET");
+  rightText(colAmt, y, "Rs " + formatMoney(totals.total), 11, true);
+
+  // Amount in words
+  y -= 22;
+  const wordsText = typeof numberToWordsIndian === "function" ? numberToWordsIndian(totals.total) : "";
+  ops.push("BT /F1 8.5 Tf");
+  ops.push(`${rgb(107, 122, 136)} rg`);
+  ops.push(`1 0 0 1 ${L} ${y} Tm (${pdfEscape("Amount in words: " + wordsText)}) Tj`);
+  ops.push("ET");
 
   if (state.notes) {
-    y -= 30;
-    ops.push("BT /F1 9 Tf");
-    ops.push(`${rgb(96, 125, 139)} rg`);
+    y -= 18;
+    ops.push("BT /F1 8.5 Tf");
+    ops.push(`${rgb(84, 110, 122)} rg`);
     ops.push(
       `1 0 0 1 ${L} ${y} Tm (${pdfEscape("Notes: " + String(state.notes).substring(0, 90))}) Tj`
     );
@@ -431,16 +499,16 @@ function buildInvoicePdfBlob(state, totals) {
   }
 
   // Footer
-  ops.push(`${rgb(176, 190, 197)} RG 0.6 w`);
+  ops.push(`${rgb(219, 230, 238)} RG 0.6 w`);
   ops.push("[2.5 2] 0 d");
-  ops.push(`${L} 70 m ${R} 70 l S`);
+  ops.push(`${L} 60 m ${R} 60 l S`);
   ops.push("[] 0 d");
 
   const thanks = "Thanks for doing business with us!";
   const tw = thanks.length * 10 * 0.42;
-  ops.push("BT /F1 10 Tf");
-  ops.push(`${rgb(158, 158, 158)} rg`);
-  ops.push(`1 0 0 1 ${((pageW - tw) / 2).toFixed(1)} 48 Tm (${pdfEscape(thanks)}) Tj`);
+  ops.push("BT /F1 9.5 Tf");
+  ops.push(`${rgb(107, 122, 136)} rg`);
+  ops.push(`1 0 0 1 ${((pageW - tw) / 2).toFixed(1)} 42 Tm (${pdfEscape(thanks)}) Tj`);
   ops.push("ET");
 
   return assembleDesignPdf(ops.join("\n"), logoBytes, logoPixelW, logoPixelH, pageW, pageH);
