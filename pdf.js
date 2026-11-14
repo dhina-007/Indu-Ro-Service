@@ -363,8 +363,6 @@ function buildInvoicePdfBlob(state, totals) {
 
   my -= 12;
   ops.push("BT");
-  ops.push(`/F1 8.5 Tf ${rgb(107, 122, 136)} rg`);
-  ops.push(`1 0 0 1 ${metaL} ${my} Tm (${pdfEscape(state.customerAddress || "Customer address")}) Tj`);
   ops.push(`/F2 9.5 Tf ${rgb(29, 42, 53)} rg`);
   ops.push(`1 0 0 1 ${metaR} ${my} Tm (${pdfEscape(formatDateDisplay(state.issueDate))}) Tj`);
   ops.push("ET");

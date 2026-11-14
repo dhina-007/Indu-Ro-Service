@@ -9,7 +9,6 @@ const DRAFT_KEY = "indu_ro_draft";
 const els = {
   customerName: document.getElementById("customerName"),
   customerPhone: document.getElementById("customerPhone"),
-  customerAddress: document.getElementById("customerAddress"),
   refNo: document.getElementById("refNo"),
   issueDate: document.getElementById("issueDate"),
   paymentMode: document.getElementById("paymentMode"),
@@ -17,7 +16,6 @@ const els = {
   itemsList: document.getElementById("itemsList"),
   previewCustomerName: document.getElementById("previewCustomerName"),
   previewCustomerPhone: document.getElementById("previewCustomerPhone"),
-  previewCustomerAddress: document.getElementById("previewCustomerAddress"),
   previewRefNo: document.getElementById("previewRefNo"),
   previewDate: document.getElementById("previewDate"),
   previewPayment: document.getElementById("previewPayment"),
@@ -253,7 +251,6 @@ function getFormState() {
     id: currentId || crypto.randomUUID(),
     customerName: els.customerName ? els.customerName.value.trim() : "",
     customerPhone: els.customerPhone ? els.customerPhone.value.trim() : "",
-    customerAddress: els.customerAddress ? els.customerAddress.value.trim() : "",
     refNo: els.refNo ? els.refNo.value.trim() : "",
     issueDate: els.issueDate ? els.issueDate.value : todayISO(),
     paymentMode: els.paymentMode ? els.paymentMode.value.trim() : "Paid – UPI / Cash",
@@ -421,7 +418,6 @@ function updatePreview() {
 
   els.previewCustomerName.textContent = state.customerName || "Customer Name";
   els.previewCustomerPhone.textContent = state.customerPhone || "—";
-  els.previewCustomerAddress.textContent = state.customerAddress || "Customer address";
   els.previewRefNo.textContent = state.refNo || "—";
   els.previewDate.textContent = formatDateDisplay(state.issueDate);
   els.previewPayment.textContent = state.paymentMode || "Paid – UPI / Cash";
@@ -507,7 +503,6 @@ function applyState(state) {
   currentId = state.id || null;
   els.customerName.value = state.customerName || "";
   els.customerPhone.value = state.customerPhone || "";
-  if (els.customerAddress) els.customerAddress.value = state.customerAddress || "";
   els.refNo.value = state.refNo || generateRefNo();
   els.issueDate.value = state.issueDate || todayISO();
   if (els.paymentMode) els.paymentMode.value = state.paymentMode || "Paid – UPI / Cash";
@@ -547,7 +542,6 @@ function newInvoice() {
     id: currentId,
     customerName: "",
     customerPhone: "",
-    customerAddress: "",
     refNo: generateRefNo(),
     issueDate: todayISO(),
     paymentMode: "Paid – UPI / Cash",
@@ -817,7 +811,6 @@ function bindEvents() {
   [
     "customerName",
     "customerPhone",
-    "customerAddress",
     "issueDate",
     "paymentMode",
     "notes",
@@ -878,7 +871,6 @@ function init() {
       id: currentId,
       customerName: "Raju",
       customerPhone: "7678904532",
-      customerAddress: "Customer address",
       refNo: "38044",
       issueDate: todayISO(),
       paymentMode: "Paid – UPI / Cash",
