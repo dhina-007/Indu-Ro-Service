@@ -741,7 +741,7 @@ function setPeriod(period) {
 
 /* ---------- whatsapp share ---------- */
 
-async function shareWhatsAppInvoice(targetState = null) {
+function shareWhatsAppInvoice(targetState = null) {
   const isTargetProvided = !!targetState;
   const state = isTargetProvided ? targetState : getFormState();
   const totals = calcTotals(state);
@@ -758,9 +758,22 @@ INDU Enterprises
   let phone = (state.customerPhone || "").replace(/\D/g, "");
   if (phone.length === 10) phone = "91" + phone;
 
+  const encodedMsg = encodeURIComponent(message);
+  const waUrl = phone
+    ? `https://api.whatsapp.com/send?phone=${phone}&text=${encodedMsg}`
+    : `https://api.whatsapp.com/send?text=${encodedMsg}`;
+
   const filename = `INDU-RO-Invoice-${state.refNo || "bill"}.pdf`;
 
-  // Build PDF synchronously in memory (<10ms) so browser user gesture is preserved
+  // 1. Open WhatsApp immediately to avoid popup blockers
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (isMobile) {
+    window.location.href = waUrl;
+  } else {
+    window.open(waUrl, "_blank");
+  }
+
+  // 2. Generate PDF and trigger download immediately
   let pdfBlob = null;
   try {
     if (typeof buildInvoicePdfBlob === "function") {
@@ -770,53 +783,11 @@ INDU Enterprises
     console.error("PDF generation error:", err);
   }
 
-  // 1. Mobile & Web Share API support:
-  // When supported (Android Chrome, iOS Safari), navigator.share attaches the PDF file AND text directly into WhatsApp!
-  if (pdfBlob && typeof File !== "undefined" && typeof navigator !== "undefined" && navigator.canShare) {
-    try {
-      const pdfFile = new File([pdfBlob], filename, {
-        type: "application/pdf",
-        lastModified: Date.now(),
-      });
-
-      if (navigator.canShare({ files: [pdfFile] })) {
-        await navigator.share({
-          title: `Invoice #${state.refNo || "bill"}`,
-          text: message,
-          files: [pdfFile],
-        });
-        showToast("Invoice PDF shared to WhatsApp!");
-        return;
-      }
-    } catch (shareErr) {
-      if (shareErr.name === "AbortError") {
-        // User cancelled the share dialog
-        return;
-      }
-      console.warn("Native share failed, proceeding with fallback:", shareErr);
-    }
-  }
-
-  // 2. Desktop fallback (WhatsApp Web):
-  // WhatsApp Web cannot programmatically accept files via URL schemes.
-  // We automatically download the PDF document to the device and open WhatsApp with the pre-filled message.
   if (pdfBlob && typeof triggerBlobDownload === "function") {
     triggerBlobDownload(pdfBlob, filename);
   }
 
-  const encodedMsg = encodeURIComponent(message);
-  const waUrl = phone
-    ? `https://api.whatsapp.com/send?phone=${phone}&text=${encodedMsg}`
-    : `https://api.whatsapp.com/send?text=${encodedMsg}`;
-
-  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  if (isMobile) {
-    window.location.href = waUrl;
-  } else {
-    window.open(waUrl, "_blank");
-  }
-
-  showToast("Invoice PDF downloaded! Attach it in WhatsApp chat (📎 > Document)", 4500);
+  showToast("Opening WhatsApp… invoice PDF downloaded to attach!");
 }
 
 /* ---------- init ---------- */
