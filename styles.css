@@ -128,6 +128,43 @@ textarea {
   color: var(--muted);
 }
 
+.toolbar-right-area {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.cloud-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.22rem 0.6rem;
+  border-radius: 999px;
+  background: var(--blue-soft);
+  color: var(--blue-dark);
+  transition: background 0.2s, color 0.2s;
+  white-space: nowrap;
+}
+
+.cloud-badge.online {
+  background: #e6f9ed;
+  color: #0d823e;
+}
+
+.cloud-badge.offline {
+  background: #fdf1f0;
+  color: #c92a2a;
+}
+
+.cloud-badge.local,
+.cloud-badge.connecting {
+  background: #eaf5fc;
+  color: #0b7fc4;
+}
+
 .toolbar-actions {
   display: flex;
   gap: 0.35rem;

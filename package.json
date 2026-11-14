@@ -1,0 +1,16 @@
+{
+  "name": "indu-ro-invoice-service",
+  "version": "1.0.0",
+  "description": "INDU RO SERVICE Invoice Application with Supabase PostgreSQL Database",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

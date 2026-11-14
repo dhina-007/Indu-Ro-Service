@@ -579,11 +579,25 @@ function saveInvoice() {
   persistDraft();
   showToast("Invoice saved");
   renderDashboard();
+
+  if (window.invoiceDb) {
+    window.invoiceDb
+      .saveInvoice(state)
+      .then((res) => {
+        if (res && res.localOnly === false) {
+          showToast("Saved & synced to Supabase");
+        }
+      })
+      .catch((err) => console.warn("Supabase save error:", err));
+  }
 }
 
 function deleteInvoice(id) {
   const list = loadInvoices().filter((inv) => inv.id !== id);
   saveInvoices(list);
+  if (window.invoiceDb) {
+    window.invoiceDb.deleteInvoice(id);
+  }
   if (currentId === id) {
     const draft = loadDraft();
     if (draft && draft.id === id) localStorage.removeItem(DRAFT_KEY);
@@ -861,8 +875,37 @@ function bindEvents() {
   });
 }
 
-function init() {
+async function init() {
   bindEvents();
+
+  if (window.invoiceDb) {
+    const cloudBadge = document.getElementById("cloudStatus");
+    window.invoiceDb.onStatusChange((status) => {
+      if (!cloudBadge) return;
+      cloudBadge.className = `cloud-badge ${status}`;
+      if (status === "online") {
+        cloudBadge.textContent = "☁️ Supabase Live";
+        cloudBadge.title = "Connected to Supabase PostgreSQL database";
+      } else if (status === "local") {
+        cloudBadge.textContent = "☁️ Supabase Ready";
+        cloudBadge.title = "Connected to Supabase (run supabase-schema.sql to enable cloud sync)";
+      } else {
+        cloudBadge.textContent = "☁️ Local Cache";
+        cloudBadge.title = "Working with local offline storage";
+      }
+    });
+
+    try {
+      const remote = await window.invoiceDb.fetchInvoices();
+      if (remote && remote.length > 0) {
+        saveInvoices(remote);
+        renderDashboard();
+      }
+    } catch (err) {
+      console.warn("Remote invoice fetch:", err);
+    }
+  }
+
   const draft = loadDraft();
   if (draft) applyState(draft);
   else {
