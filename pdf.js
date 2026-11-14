@@ -14,11 +14,12 @@ function triggerBlobDownload(blob, filename) {
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
+  a.target = "_blank";
   a.rel = "noopener";
   document.body.appendChild(a);
   a.click();
   a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
 function dataUrlToUint8Array(dataUrl) {
@@ -85,18 +86,20 @@ async function downloadPdf() {
   applyLogoDataUrls();
 
   const state = getFormState();
+  const totals = typeof calcTotals === "function" ? calcTotals(state) : { qtyTotal: 0, total: 0 };
   const filename = `INDU-RO-Invoice-${state.refNo || "draft"}.pdf`;
 
   showToast("Preparing PDF…");
 
+  // Primary: Pure vector A4 PDF — pixel-perfect on iPhone, Android, and Desktop
   try {
-    const blob = await captureInvoiceAsPdfBlob();
+    const blob = buildInvoicePdfBlob(state, totals);
     triggerBlobDownload(blob, filename);
     showToast("PDF downloaded");
   } catch (err) {
-    console.warn("Capture failed, using matching layout PDF:", err);
+    console.warn("Vector PDF failed, trying HTML capture:", err);
     try {
-      const blob = buildInvoicePdfBlob(state, calcTotals(state));
+      const blob = await captureInvoiceAsPdfBlob();
       triggerBlobDownload(blob, filename);
       showToast("PDF downloaded");
     } catch (err2) {
@@ -257,12 +260,36 @@ function assembleImagePdf(stream, jpegBytes, imgW, imgH, pageW, pageH) {
   return new Blob(chunks, { type: "application/pdf" });
 }
 
+const HELVETICA_CHAR_WIDTHS = {
+  " ": 278, "!": 278, '"': 355, "#": 556, "$": 556, "%": 889, "&": 667, "'": 191,
+  "(": 333, ")": 333, "*": 389, "+": 584, ",": 278, "-": 333, ".": 278, "/": 278,
+  "0": 556, "1": 556, "2": 556, "3": 556, "4": 556, "5": 556, "6": 556, "7": 556, "8": 556, "9": 556,
+  ":": 278, ";": 278, "<": 584, "=": 584, ">": 584, "?": 556, "@": 1015,
+  "A": 667, "B": 667, "C": 722, "D": 722, "E": 667, "F": 611, "G": 778, "H": 722, "I": 278,
+  "J": 500, "K": 667, "L": 556, "M": 833, "N": 722, "O": 722, "P": 667, "Q": 722, "R": 667,
+  "S": 667, "T": 611, "U": 722, "V": 667, "W": 944, "X": 667, "Y": 667, "Z": 611,
+  "[": 278, "\\": 278, "]": 278, "^": 469, "_": 556, "`": 222,
+  "a": 556, "b": 556, "c": 500, "d": 556, "e": 556, "f": 278, "g": 556, "h": 556, "i": 222,
+  "j": 222, "k": 500, "l": 222, "m": 833, "n": 556, "o": 556, "p": 556, "q": 556, "r": 333,
+  "s": 500, "t": 278, "u": 556, "v": 500, "w": 722, "x": 500, "y": 500, "z": 500,
+  "{": 334, "|": 260, "}": 334, "~": 584
+};
+
+function getPdfTextWidth(str, size) {
+  let w = 0;
+  for (let ch of String(str)) {
+    w += (HELVETICA_CHAR_WIDTHS[ch] || 550);
+  }
+  return (w / 1000) * size;
+}
+
 /**
- * Fallback — exact same Tax Invoice layout matching new invoice design.
+ * Exact Tax Invoice vector layout matching print preview on standard A4 (595 x 842 pt).
+ * Immune to mobile screen width constraints, ensuring pixel-perfect alignment on iPhone.
  */
 function buildInvoicePdfBlob(state, totals) {
-  const pageW = 595;
-  const pageH = 842;
+  const pageW = 595.28;
+  const pageH = 841.89;
   const m = 36;
   const L = m;
   const R = pageW - m;
@@ -328,24 +355,29 @@ function buildInvoicePdfBlob(state, totals) {
     ops.push(`q ${drawLogoW} 0 0 ${drawLogoH} ${lx} ${ly} cm /Im1 Do Q`);
   }
 
-  // Meta Section Box
+  // Meta Section Box (height = 84pt to comfortably contain all rows)
   y -= 22;
-  const metaBoxH = 68;
-  ops.push(`${rgb(247, 250, 252)} rg`);
-  ops.push(`${L} ${y - metaBoxH + 12} ${W} ${metaBoxH} re f`);
-  ops.push(`${rgb(219, 230, 238)} RG 0.8 w`);
-  ops.push(`${L} ${y - metaBoxH + 12} ${W} ${metaBoxH} re S`);
+  const metaBoxH = 84;
+  const boxTop = y + 14;
+  const boxBottom = boxTop - metaBoxH;
 
-  const metaL = L + 12;
-  const metaR = R - 130;
+  ops.push(`${rgb(247, 250, 252)} rg`);
+  ops.push(`${L} ${boxBottom} ${W} ${metaBoxH} re f`);
+  ops.push(`${rgb(219, 230, 238)} RG 0.8 w`);
+  ops.push(`${L} ${boxBottom} ${W} ${metaBoxH} re S`);
+
+  const metaL = L + 14;
+  const metaR = R - 135;
   let my = y;
 
+  // BILL TO & INVOICE NO
   ops.push("BT");
-  ops.push(`/F2 8 Tf ${rgb(11, 127, 196)} rg`);
+  ops.push(`/F2 7.5 Tf ${rgb(11, 127, 196)} rg`);
   ops.push(`1 0 0 1 ${metaL} ${my} Tm (${pdfEscape("BILL TO")}) Tj`);
   ops.push(`1 0 0 1 ${metaR} ${my} Tm (${pdfEscape("INVOICE NO")}) Tj`);
   ops.push("ET");
 
+  // Customer Name & Ref No
   my -= 13;
   ops.push("BT");
   ops.push(`/F2 11 Tf ${rgb(29, 42, 53)} rg`);
@@ -353,49 +385,54 @@ function buildInvoicePdfBlob(state, totals) {
   ops.push(`1 0 0 1 ${metaR} ${my} Tm (${pdfEscape(String(state.refNo || "-"))}) Tj`);
   ops.push("ET");
 
+  // Phone & DATE OF ISSUE
   my -= 13;
   ops.push("BT");
-  ops.push(`/F2 9 Tf ${rgb(11, 127, 196)} rg`);
+  ops.push(`/F2 9.5 Tf ${rgb(11, 127, 196)} rg`);
   ops.push(`1 0 0 1 ${metaL} ${my} Tm (${pdfEscape(state.customerPhone || "-")}) Tj`);
   ops.push(`/F2 7.5 Tf ${rgb(11, 127, 196)} rg`);
   ops.push(`1 0 0 1 ${metaR} ${my} Tm (${pdfEscape("DATE OF ISSUE")}) Tj`);
   ops.push("ET");
 
+  // Date value
   my -= 12;
   ops.push("BT");
   ops.push(`/F2 9.5 Tf ${rgb(29, 42, 53)} rg`);
   ops.push(`1 0 0 1 ${metaR} ${my} Tm (${pdfEscape(formatDateDisplay(state.issueDate))}) Tj`);
   ops.push("ET");
 
-  my -= 11;
+  // PAYMENT label
+  my -= 12;
   ops.push("BT");
   ops.push(`/F2 7.5 Tf ${rgb(11, 127, 196)} rg`);
   ops.push(`1 0 0 1 ${metaR} ${my} Tm (${pdfEscape("PAYMENT")}) Tj`);
   ops.push("ET");
 
-  my -= 10;
+  // Payment mode value
+  my -= 11;
   ops.push("BT");
   ops.push(`/F1 8.5 Tf ${rgb(29, 42, 53)} rg`);
   ops.push(`1 0 0 1 ${metaR} ${my} Tm (${pdfEscape(state.paymentMode || "Paid – UPI / Cash")}) Tj`);
   ops.push("ET");
 
-  // Table
-  y = my - 24;
+  // Table setup
+  y = boxBottom - 18;
   const colSr = L + 8;
   const colName = L + 28;
-  const colWarr = L + 175;
-  const colQty = R - 165;
-  const colPrice = R - 100;
+  const colWarr = L + 195;
+  const colQty = R - 150;
+  const colPrice = R - 75;
   const colAmt = R - 8;
 
-  const rightText = (xRight, ty, text, size, bold) => {
-    const approx = String(text).length * size * 0.52;
+  const rightText = (xRight, ty, text, size, bold, colorRgb) => {
+    const w = getPdfTextWidth(text, size);
     ops.push("BT");
-    ops.push(`${bold ? "/F2" : "/F1"} ${size} Tf ${rgb(29, 42, 53)} rg`);
-    ops.push(`1 0 0 1 ${(xRight - approx).toFixed(1)} ${ty} Tm (${pdfEscape(text)}) Tj`);
+    ops.push(`${bold ? "/F2" : "/F1"} ${size} Tf ${colorRgb || rgb(29, 42, 53)} rg`);
+    ops.push(`1 0 0 1 ${(xRight - w).toFixed(1)} ${ty} Tm (${pdfEscape(text)}) Tj`);
     ops.push("ET");
   };
 
+  // Table Header Bar
   ops.push(`${rgb(234, 245, 252)} rg`);
   ops.push(`${L} ${y - 6} ${W} 20 re f`);
   ops.push("BT /F2 8 Tf");
@@ -404,9 +441,9 @@ function buildInvoicePdfBlob(state, totals) {
   ops.push(`1 0 0 1 ${colName} ${y} Tm (Item) Tj`);
   ops.push(`1 0 0 1 ${colWarr} ${y} Tm (Warranty) Tj`);
   ops.push("ET");
-  rightText(colQty, y, "Qty", 8, true);
-  rightText(colPrice, y, "Price (Rs)", 8, true);
-  rightText(colAmt, y, "Amount (Rs)", 8, true);
+  rightText(colQty, y, "Qty", 8, true, rgb(68, 88, 106));
+  rightText(colPrice, y, "Price (Rs)", 8, true, rgb(68, 88, 106));
+  rightText(colAmt, y, "Amount (Rs)", 8, true, rgb(68, 88, 106));
 
   y -= 22;
 
@@ -420,7 +457,7 @@ function buildInvoicePdfBlob(state, totals) {
     filled.forEach((it, i) => {
       if (y < 120) return;
       const amount = parseNum(it.qty) * parseNum(it.price);
-      const name = String(it.name || "-").substring(0, 30);
+      const name = String(it.name || "-").substring(0, 32);
       const warr = String(it.warranty || "-").substring(0, 16);
 
       ops.push("BT /F1 9.5 Tf");
@@ -472,11 +509,8 @@ function buildInvoicePdfBlob(state, totals) {
   y -= 18;
   ops.push(`${rgb(234, 245, 252)} rg`);
   ops.push(`${L} ${y - 6} ${W} 22 re f`);
-  ops.push("BT /F2 11 Tf");
-  ops.push(`${rgb(29, 42, 53)} rg`);
-  ops.push(`1 0 0 1 ${colPrice - 60} ${y} Tm (Grand total) Tj`);
-  ops.push("ET");
-  rightText(colAmt, y, "Rs " + formatMoney(totals.total), 11, true);
+  rightText(colPrice - 10, y, "Grand total", 11, true, rgb(29, 42, 53));
+  rightText(colAmt, y, "Rs " + formatMoney(totals.total), 11, true, rgb(29, 42, 53));
 
   // Amount in words
   y -= 22;
@@ -487,7 +521,7 @@ function buildInvoicePdfBlob(state, totals) {
   ops.push("ET");
 
   if (state.notes) {
-    y -= 18;
+    y -= 16;
     ops.push("BT /F1 8.5 Tf");
     ops.push(`${rgb(84, 110, 122)} rg`);
     ops.push(
@@ -499,14 +533,15 @@ function buildInvoicePdfBlob(state, totals) {
   // Footer
   ops.push(`${rgb(219, 230, 238)} RG 0.6 w`);
   ops.push("[2.5 2] 0 d");
-  ops.push(`${L} 60 m ${R} 60 l S`);
+  ops.push(`${L} 56 m ${R} 56 l S`);
   ops.push("[] 0 d");
 
   const thanks = "Thanks for doing business with us!";
-  const tw = thanks.length * 10 * 0.42;
+  const tw = getPdfTextWidth(thanks, 9.5);
+  const tx = ((pageW - tw) / 2).toFixed(1);
   ops.push("BT /F1 9.5 Tf");
   ops.push(`${rgb(107, 122, 136)} rg`);
-  ops.push(`1 0 0 1 ${((pageW - tw) / 2).toFixed(1)} 42 Tm (${pdfEscape(thanks)}) Tj`);
+  ops.push(`1 0 0 1 ${tx} 38 Tm (${pdfEscape(thanks)}) Tj`);
   ops.push("ET");
 
   return assembleDesignPdf(ops.join("\n"), logoBytes, logoPixelW, logoPixelH, pageW, pageH);
