@@ -748,6 +748,24 @@ function shareWhatsAppInvoice(targetState = null) {
   const customerName = state.customerName || "Customer";
   const totalStr = `₹ ${formatMoney(totals.total)}`;
 
+  let rawPhone = (state.customerPhone || "").replace(/\D/g, "");
+  let phone = "";
+  if (rawPhone.length === 10) {
+    phone = "91" + rawPhone;
+  } else if (rawPhone.length === 11 && rawPhone.startsWith("0")) {
+    phone = "91" + rawPhone.slice(1);
+  } else if (rawPhone.length === 12 && rawPhone.startsWith("91")) {
+    phone = rawPhone;
+  } else if (rawPhone.length > 0) {
+    phone = rawPhone;
+  }
+
+  if (!phone) {
+    showToast("Please enter customer contact number");
+    if (!isTargetProvided && els.customerPhone) els.customerPhone.focus();
+    return;
+  }
+
   const message = `Hi ${customerName},
 Details of your Sale Invoice from INDU Enterprises
 Invoice Amount: ${totalStr}
@@ -755,25 +773,10 @@ Thank you for doing business with us,
 INDU Enterprises
 6382182592 | 7904015662`;
 
-  let phone = (state.customerPhone || "").replace(/\D/g, "");
-  if (phone.length === 10) phone = "91" + phone;
-
   const encodedMsg = encodeURIComponent(message);
-  const waUrl = phone
-    ? `https://api.whatsapp.com/send?phone=${phone}&text=${encodedMsg}`
-    : `https://api.whatsapp.com/send?text=${encodedMsg}`;
-
   const filename = `INDU-RO-Invoice-${state.refNo || "bill"}.pdf`;
 
-  // 1. Open WhatsApp immediately to avoid popup blockers
-  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  if (isMobile) {
-    window.location.href = waUrl;
-  } else {
-    window.open(waUrl, "_blank");
-  }
-
-  // 2. Generate PDF and trigger download immediately
+  // 1. Generate PDF and trigger download immediately
   let pdfBlob = null;
   try {
     if (typeof buildInvoicePdfBlob === "function") {
@@ -787,7 +790,31 @@ INDU Enterprises
     triggerBlobDownload(pdfBlob, filename);
   }
 
-  showToast("Opening WhatsApp… invoice PDF downloaded to attach!");
+  // 2. Open WhatsApp directly to customer's chat on Android, iPhone & Desktop
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (isMobile) {
+    // Native deep-link opens WhatsApp directly into the customer's chat
+    const appUrl = `whatsapp://send?phone=${phone}&text=${encodedMsg}`;
+    const webUrl = `https://wa.me/${phone}?text=${encodedMsg}`;
+
+    // Anchor click triggers native protocol handler on both Android Chrome & iOS Safari
+    const a = document.createElement("a");
+    a.href = appUrl;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    // Universal link fallback
+    setTimeout(() => {
+      window.location.href = webUrl;
+    }, 1000);
+  } else {
+    // Desktop: WhatsApp Web direct conversation
+    const desktopUrl = `https://web.whatsapp.com/send?phone=${phone}&text=${encodedMsg}`;
+    window.open(desktopUrl, "_blank");
+  }
+
+  showToast("Opening WhatsApp chat… invoice PDF downloaded!");
 }
 
 /* ---------- init ---------- */
