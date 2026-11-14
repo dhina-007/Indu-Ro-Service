@@ -30,19 +30,7 @@ class InvoiceDatabase {
   }
 
   async init() {
-    // Check if backend API config is available
-    try {
-      const cfgRes = await fetch("/api/config", { signal: AbortSignal.timeout(1500) });
-      if (cfgRes.ok) {
-        const cfg = await cfgRes.json();
-        if (cfg.supabaseUrl) SUPABASE_CONFIG.url = cfg.supabaseUrl;
-        if (cfg.supabasePublishableKey) SUPABASE_CONFIG.anonKey = cfg.supabasePublishableKey;
-      }
-    } catch {
-      // Running on Render Static Site — uses configured SUPABASE_CONFIG
-    }
-
-    // Quick test if Supabase invoices table is reachable
+    // Test if Supabase invoices table is reachable
     try {
       const res = await fetch(`${SUPABASE_CONFIG.url}/rest/v1/invoices?select=id&limit=1`, {
         headers: {
@@ -82,27 +70,10 @@ class InvoiceDatabase {
     }
   }
 
-  // Fetch all invoices (from Supabase if online, merged with local cache)
+  // Fetch all invoices directly from Supabase (merged with local cache)
   async fetchInvoices() {
     const local = this.getLocalInvoices();
 
-    // Check if backend API exists first (/api/invoices)
-    try {
-      const apiRes = await fetch("/api/invoices", { signal: AbortSignal.timeout(2500) });
-      if (apiRes.ok) {
-        const remoteData = await apiRes.json();
-        if (Array.isArray(remoteData)) {
-          const list = remoteData.map((row) => this.fromDbRow(row));
-          this.setLocalInvoices(list);
-          this.setStatus("online");
-          return list;
-        }
-      }
-    } catch {
-      // Not running backend server, continue to direct Supabase
-    }
-
-    // Direct Supabase REST fetch
     try {
       const res = await fetch(
         `${SUPABASE_CONFIG.url}/rest/v1/invoices?select=*&order=created_at.desc`,
@@ -111,7 +82,7 @@ class InvoiceDatabase {
             apikey: SUPABASE_CONFIG.anonKey,
             Authorization: `Bearer ${SUPABASE_CONFIG.anonKey}`,
           },
-          signal: AbortSignal.timeout(4000),
+          signal: AbortSignal.timeout(5000),
         }
       );
 
@@ -121,9 +92,12 @@ class InvoiceDatabase {
         this.setLocalInvoices(remoteList);
         this.setStatus("online");
         return remoteList;
+      } else {
+        this.setStatus("local");
       }
     } catch (err) {
-      console.warn("Direct Supabase fetch failed, using local cache:", err);
+      console.warn("Supabase fetch failed, using local cache:", err);
+      this.setStatus("offline");
     }
 
     return local;
@@ -140,23 +114,7 @@ class InvoiceDatabase {
 
     const row = this.toDbRow(invoice);
 
-    // 2. Try sending to backend API if available
-    try {
-      const apiRes = await fetch("/api/invoices", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(row),
-        signal: AbortSignal.timeout(3000),
-      });
-      if (apiRes.ok) {
-        this.setStatus("online");
-        return { success: true, localOnly: false };
-      }
-    } catch {
-      // Continue to direct Supabase
-    }
-
-    // 3. Direct Supabase upsert
+    // 2. Direct Supabase upsert
     try {
       const res = await fetch(`${SUPABASE_CONFIG.url}/rest/v1/invoices`, {
         method: "POST",
@@ -167,7 +125,7 @@ class InvoiceDatabase {
           Prefer: "resolution=merge-duplicates,return=minimal",
         },
         body: JSON.stringify(row),
-        signal: AbortSignal.timeout(4000),
+        signal: AbortSignal.timeout(5000),
       });
 
       if (res.ok || res.status === 201 || res.status === 204) {
@@ -175,9 +133,11 @@ class InvoiceDatabase {
         return { success: true, localOnly: false };
       } else {
         console.warn("Supabase save response:", res.status, await res.text());
+        this.setStatus("local");
       }
     } catch (err) {
       console.warn("Supabase save failed, stored locally:", err);
+      this.setStatus("offline");
     }
 
     return { success: true, localOnly: true };
@@ -189,18 +149,7 @@ class InvoiceDatabase {
     const local = this.getLocalInvoices().filter((i) => i.id !== id);
     this.setLocalInvoices(local);
 
-    // 2. Try backend API
-    try {
-      const apiRes = await fetch(`/api/invoices/${id}`, {
-        method: "DELETE",
-        signal: AbortSignal.timeout(3000),
-      });
-      if (apiRes.ok) return true;
-    } catch {
-      // Continue to Supabase
-    }
-
-    // 3. Direct Supabase delete
+    // 2. Direct Supabase delete
     try {
       await fetch(`${SUPABASE_CONFIG.url}/rest/v1/invoices?id=eq.${id}`, {
         method: "DELETE",
@@ -208,7 +157,7 @@ class InvoiceDatabase {
           apikey: SUPABASE_CONFIG.anonKey,
           Authorization: `Bearer ${SUPABASE_CONFIG.anonKey}`,
         },
-        signal: AbortSignal.timeout(4000),
+        signal: AbortSignal.timeout(5000),
       });
     } catch (err) {
       console.warn("Supabase delete failed:", err);
