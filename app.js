@@ -12,6 +12,7 @@ const els = {
   refNo: document.getElementById("refNo"),
   issueDate: document.getElementById("issueDate"),
   paymentMode: document.getElementById("paymentMode"),
+  profit: document.getElementById("profit"),
   notes: document.getElementById("notes"),
   itemsList: document.getElementById("itemsList"),
   previewCustomerName: document.getElementById("previewCustomerName"),
@@ -34,6 +35,7 @@ const els = {
   dashHeroMeta: document.getElementById("dashHeroMeta"),
   dashCount: document.getElementById("dashCount"),
   dashRevenue: document.getElementById("dashRevenue"),
+  dashProfit: document.getElementById("dashProfit"),
   dashPeriodLabel: document.getElementById("dashPeriodLabel"),
   dashList: document.getElementById("dashList"),
   dashEmpty: document.getElementById("dashEmpty"),
@@ -254,6 +256,7 @@ function getFormState() {
     refNo: els.refNo ? els.refNo.value.trim() : "",
     issueDate: els.issueDate ? els.issueDate.value : todayISO(),
     paymentMode: els.paymentMode ? els.paymentMode.value.trim() : "Paid – UPI / Cash",
+    profit: els.profit && els.profit.value !== "" ? parseNum(els.profit.value) : 0,
     notes: els.notes ? els.notes.value.trim() : "",
     items: items.map((it) => ({
       name: it.name.trim(),
@@ -506,6 +509,7 @@ function applyState(state) {
   els.refNo.value = state.refNo || generateRefNo();
   els.issueDate.value = state.issueDate || todayISO();
   if (els.paymentMode) els.paymentMode.value = state.paymentMode || "Paid – UPI / Cash";
+  if (els.profit) els.profit.value = state.profit !== undefined && state.profit !== null && state.profit !== "" ? state.profit : "";
   els.notes.value = state.notes || "";
   items = (state.items && state.items.length
     ? state.items
@@ -545,6 +549,7 @@ function newInvoice() {
     refNo: generateRefNo(),
     issueDate: todayISO(),
     paymentMode: "Paid – UPI / Cash",
+    profit: "",
     notes: "",
     items: [{ name: "", serialNo: "", warrantyValue: 1, warrantyUnit: "Year", warranty: "1 Year", validTill: "", qty: 1, price: "" }],
   });
@@ -685,14 +690,17 @@ function renderDashboard() {
   const { filtered, label } = filterInvoicesByPeriod(invoices, currentPeriod);
 
   let revenue = 0;
+  let totalProfit = 0;
   filtered.forEach((inv) => {
     revenue += calcTotals(inv).total;
+    totalProfit += parseNum(inv.profit);
   });
 
   els.dashHeroAmount.textContent = `₹ ${formatMoney(revenue)}`;
   els.dashHeroMeta.textContent = `${filtered.length} invoice${filtered.length === 1 ? "" : "s"}`;
   els.dashCount.textContent = String(filtered.length);
   els.dashRevenue.textContent = `₹ ${formatMoneyShort(revenue)}`;
+  if (els.dashProfit) els.dashProfit.textContent = `₹ ${formatMoneyShort(totalProfit)}`;
   els.dashPeriodLabel.textContent = label;
 
   els.dashList.innerHTML = "";
@@ -700,12 +708,21 @@ function renderDashboard() {
 
   filtered.forEach((inv) => {
     const totals = calcTotals(inv);
+    const profitNum = parseNum(inv.profit);
+    const hasProfit = inv.profit !== undefined && inv.profit !== null && String(inv.profit).trim() !== "";
+    const profitBadge = hasProfit || profitNum !== 0
+      ? `<span class="dash-profit-badge">Profit: ₹ ${formatMoney(profitNum)}</span>`
+      : "";
+
     const li = document.createElement("li");
     li.className = "dash-item";
     li.innerHTML = `
       <button type="button" class="dash-item-main">
         <div class="dash-item-top">
-          <strong>${escapeHtml(inv.customerName) || "Untitled"}</strong>
+          <div class="dash-item-cust">
+            <strong>${escapeHtml(inv.customerName) || "Untitled"}</strong>
+            ${profitBadge}
+          </div>
           <span class="dash-item-amt">₹ ${formatMoney(totals.total)}</span>
         </div>
         <div class="dash-item-meta">
@@ -825,6 +842,7 @@ function bindEvents() {
     "customerPhone",
     "issueDate",
     "paymentMode",
+    "profit",
     "notes",
   ].forEach((key) => {
     if (els[key]) {

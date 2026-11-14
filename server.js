@@ -99,6 +99,7 @@ app.post("/api/invoices", async (req, res) => {
       customer_phone: inv.customer_phone || inv.customerPhone || "",
       issue_date: inv.issue_date || inv.issueDate,
       payment_mode: inv.payment_mode || inv.paymentMode || "Paid – UPI / Cash",
+      profit: parseFloat(inv.profit) || 0,
       notes: inv.notes || "",
       items: inv.items || [],
       updated_at: new Date().toISOString(),

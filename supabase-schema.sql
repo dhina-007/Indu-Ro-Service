@@ -16,11 +16,15 @@ CREATE TABLE IF NOT EXISTS public.invoices (
   customer_phone TEXT NOT NULL,
   issue_date DATE NOT NULL DEFAULT CURRENT_DATE,
   payment_mode TEXT DEFAULT 'Paid – UPI / Cash',
+  profit NUMERIC DEFAULT 0,
   notes TEXT DEFAULT '',
   items JSONB NOT NULL DEFAULT '[]'::jsonb,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- Ensure profit column exists on existing tables
+ALTER TABLE public.invoices ADD COLUMN IF NOT EXISTS profit NUMERIC DEFAULT 0;
 
 -- 3. Create indexes for quick search and sorting
 CREATE INDEX IF NOT EXISTS idx_invoices_ref_no ON public.invoices (ref_no);

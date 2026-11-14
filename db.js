@@ -116,7 +116,7 @@ class InvoiceDatabase {
 
     // 2. Direct Supabase upsert
     try {
-      const res = await fetch(`${SUPABASE_CONFIG.url}/rest/v1/invoices`, {
+      let res = await fetch(`${SUPABASE_CONFIG.url}/rest/v1/invoices`, {
         method: "POST",
         headers: {
           apikey: SUPABASE_CONFIG.anonKey,
@@ -127,6 +127,25 @@ class InvoiceDatabase {
         body: JSON.stringify(row),
         signal: AbortSignal.timeout(5000),
       });
+
+      // If profit column is not in Supabase schema yet, retry without profit column
+      if (res.status === 400 && row.profit !== undefined) {
+        const errText = await res.text();
+        if (errText.includes("profit")) {
+          const fallbackRow = this.toDbRow(invoice, false);
+          res = await fetch(`${SUPABASE_CONFIG.url}/rest/v1/invoices`, {
+            method: "POST",
+            headers: {
+              apikey: SUPABASE_CONFIG.anonKey,
+              Authorization: `Bearer ${SUPABASE_CONFIG.anonKey}`,
+              "Content-Type": "application/json",
+              Prefer: "resolution=merge-duplicates,return=minimal",
+            },
+            body: JSON.stringify(fallbackRow),
+            signal: AbortSignal.timeout(5000),
+          });
+        }
+      }
 
       if (res.ok || res.status === 201 || res.status === 204) {
         this.setStatus("online");
@@ -167,8 +186,8 @@ class InvoiceDatabase {
   }
 
   // Map JS invoice object to database row
-  toDbRow(inv) {
-    return {
+  toDbRow(inv, includeProfit = true) {
+    const row = {
       id: inv.id || crypto.randomUUID(),
       ref_no: String(inv.refNo || "").trim(),
       customer_name: String(inv.customerName || "").trim(),
@@ -179,6 +198,10 @@ class InvoiceDatabase {
       items: Array.isArray(inv.items) ? inv.items : [],
       updated_at: new Date().toISOString(),
     };
+    if (includeProfit && inv.profit !== undefined && inv.profit !== null && String(inv.profit).trim() !== "") {
+      row.profit = parseFloat(inv.profit) || 0;
+    }
+    return row;
   }
 
   // Map database row to JS invoice object
@@ -190,6 +213,7 @@ class InvoiceDatabase {
       customerPhone: row.customer_phone || row.customerPhone || "",
       issueDate: row.issue_date || row.issueDate || new Date().toISOString().slice(0, 10),
       paymentMode: row.payment_mode || row.paymentMode || "Paid – UPI / Cash",
+      profit: row.profit !== undefined && row.profit !== null ? parseFloat(row.profit) : 0,
       notes: row.notes || "",
       items: Array.isArray(row.items) ? row.items : [],
       updatedAt: row.updated_at || row.created_at || new Date().toISOString(),

@@ -53,6 +53,10 @@
           <span class="stat-label">Revenue</span>
           <strong class="stat-value" id="dashRevenue">₹ 0</strong>
         </div>
+        <div class="stat-card">
+          <span class="stat-label">Profit</span>
+          <strong class="stat-value" id="dashProfit" style="color:var(--green)">₹ 0</strong>
+        </div>
       </div>
 
       <p class="dash-period-label" id="dashPeriodLabel">Today</p>
@@ -89,10 +93,16 @@
             </label>
           </div>
 
-          <label class="field">
-            <span>Payment mode</span>
-            <input type="text" id="paymentMode" placeholder="Paid – UPI / Cash" value="Paid – UPI / Cash" />
-          </label>
+          <div class="field-row">
+            <label class="field">
+              <span>Payment mode</span>
+              <input type="text" id="paymentMode" placeholder="Paid – UPI / Cash" value="Paid – UPI / Cash" />
+            </label>
+            <label class="field">
+              <span>Profit (₹) <small style="color:var(--mute);font-weight:normal">(Internal tracking)</small></span>
+              <input type="number" id="profit" min="0" step="0.01" inputmode="decimal" placeholder="e.g. 1500" />
+            </label>
+          </div>
 
           <div class="items-header">
             <h3>Products</h3>
@@ -218,8 +228,8 @@
 
   <script src="vendor/logo-data.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" crossorigin="anonymous"></script>
-  <script src="pdf.js?v=2.3"></script>
-  <script src="db.js?v=2.3"></script>
-  <script src="app.js?v=2.3"></script>
+  <script src="pdf.js?v=2.4"></script>
+  <script src="db.js?v=2.4"></script>
+  <script src="app.js?v=2.4"></script>
 </body>
 </html>
