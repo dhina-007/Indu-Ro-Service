@@ -30,6 +30,18 @@ class InvoiceDatabase {
   }
 
   async init() {
+    // Check if backend API config is available
+    try {
+      const cfgRes = await fetch("/api/config", { signal: AbortSignal.timeout(1500) });
+      if (cfgRes.ok) {
+        const cfg = await cfgRes.json();
+        if (cfg.supabaseUrl) SUPABASE_CONFIG.url = cfg.supabaseUrl;
+        if (cfg.supabasePublishableKey) SUPABASE_CONFIG.anonKey = cfg.supabasePublishableKey;
+      }
+    } catch {
+      // Running on Render Static Site — uses configured SUPABASE_CONFIG
+    }
+
     // Quick test if Supabase invoices table is reachable
     try {
       const res = await fetch(`${SUPABASE_CONFIG.url}/rest/v1/invoices?select=id&limit=1`, {

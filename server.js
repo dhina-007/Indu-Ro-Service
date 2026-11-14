@@ -1,11 +1,41 @@
 const express = require("express");
 const path = require("path");
+const fs = require("fs");
+
+// Load .env file automatically
+try {
+  if (typeof process.loadEnvFile === "function") {
+    process.loadEnvFile();
+  } else {
+    const envPath = path.join(__dirname, ".env");
+    if (fs.existsSync(envPath)) {
+      const lines = fs.readFileSync(envPath, "utf8").split("\n");
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith("#")) continue;
+        const [k, ...v] = trimmed.split("=");
+        if (k && !process.env[k]) {
+          process.env[k] = v.join("=").trim().replace(/^["']|["']$/g, "");
+        }
+      }
+    }
+  }
+} catch (e) {
+  // .env is optional when platform env vars are provided
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://kyakvqoxfyvgpjklhflo.supabase.co";
-const SUPABASE_KEY = process.env.SUPABASE_KEY || process.env.SUPABASE_ANON_KEY || "sb_publishable_MDedHPa7LQQ-_nAGA5PSEQ_hFf-TakX";
+const SUPABASE_KEY =
+  process.env.SUPABASE_SECRET_KEY ||
+  process.env.SUPABASE_KEY ||
+  process.env.SUPABASE_PUBLISHABLE_KEY ||
+  "";
+const SUPABASE_PUBLISHABLE_KEY =
+  process.env.SUPABASE_PUBLISHABLE_KEY ||
+  "sb_publishable_MDedHPa7LQQ-_nAGA5PSEQ_hFf-TakX";
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.static(path.join(__dirname)));
@@ -16,6 +46,14 @@ const headers = {
   "Content-Type": "application/json",
   Prefer: "return=representation",
 };
+
+// Client public configuration endpoint (exposes only publishable key and URL)
+app.get("/api/config", (req, res) => {
+  res.json({
+    supabaseUrl: SUPABASE_URL,
+    supabasePublishableKey: SUPABASE_PUBLISHABLE_KEY,
+  });
+});
 
 // Health check
 app.get("/api/health", async (req, res) => {
