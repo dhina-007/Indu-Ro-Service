@@ -183,6 +183,25 @@ function buildWarrantyText(value, unit = "Year") {
   return `${num} ${plural}`;
 }
 
+function isValidSerialNo(val) {
+  if (!val) return false;
+  const s = String(val).trim();
+  if (!s) return false;
+  const lower = s.toLowerCase();
+  if (
+    lower === "enter" ||
+    lower === "enter serial" ||
+    lower === "enter serial no" ||
+    lower === "none" ||
+    lower === "na" ||
+    lower === "n/a" ||
+    lower === "-"
+  ) {
+    return false;
+  }
+  return true;
+}
+
 function calcWarrantyValidity(issueDateIso, warrantyText) {
   const cleanDate = extractISODate(issueDateIso);
   if (!cleanDate || !warrantyText) return "";
@@ -514,8 +533,9 @@ function updatePreview() {
       els.previewItems.innerHTML = filled
         .map((it, i) => {
           const amount = roundPaise(parseNum(it.qty) * parseNum(it.price));
-          const serialHtml = it.serialNo
-            ? `<span class="sub">Serial no: ${escapeHtml(it.serialNo)}</span>`
+          const cleanSerial = String(it.serialNo || "").trim();
+          const serialHtml = isValidSerialNo(cleanSerial)
+            ? `<span class="sub">Serial no: ${escapeHtml(cleanSerial)}</span>`
             : "";
           const warrantyHtml = it.warranty
             ? `<span class="warr">${escapeHtml(it.warranty)}</span>`
@@ -1166,7 +1186,7 @@ async function init() {
       items: [
         {
           name: "Aqua RO machine",
-          serialNo: "SN-10294",
+          serialNo: "",
           warranty: "1 Year",
           validTill: calcWarrantyValidity(todayISO(), "1 Year"),
           qty: 1,
@@ -1174,7 +1194,7 @@ async function init() {
         },
         {
           name: "Inverter",
-          serialNo: "INV-4412",
+          serialNo: "",
           warranty: "1 Year",
           validTill: calcWarrantyValidity(todayISO(), "1 Year"),
           qty: 1,
@@ -1182,7 +1202,7 @@ async function init() {
         },
         {
           name: "Battery",
-          serialNo: "BAT-9901",
+          serialNo: "",
           warranty: "2 Years",
           validTill: calcWarrantyValidity(todayISO(), "2 Years"),
           qty: 1,
@@ -1217,5 +1237,6 @@ if (typeof module !== "undefined" && module.exports) {
     numberToWordsIndian,
     getPeriodBounds,
     filterInvoicesByPeriod,
+    isValidSerialNo,
   };
 }

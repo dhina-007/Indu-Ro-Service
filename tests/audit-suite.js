@@ -271,6 +271,26 @@ test("WhatsApp sharing message template contains zero profit references", () => 
   assert.ok(!waFunc.includes("profit"), "CRITICAL: WhatsApp message contains profit!");
 });
 
+// ---------------------------------------------------------------------
+// 6. Serial Number Conditional Display Tests
+// ---------------------------------------------------------------------
+console.log("\n6. Serial Number Display in PDF & Preview:");
+
+test("isValidSerialNo correctly detects empty, placeholder, or valid serials", () => {
+  assert.strictEqual(app.isValidSerialNo(""), false);
+  assert.strictEqual(app.isValidSerialNo("   "), false);
+  assert.strictEqual(app.isValidSerialNo(null), false);
+  assert.strictEqual(app.isValidSerialNo(undefined), false);
+  assert.strictEqual(app.isValidSerialNo("Enter"), false);
+  assert.strictEqual(app.isValidSerialNo("enter serial no"), false);
+  assert.strictEqual(app.isValidSerialNo("none"), false);
+  assert.strictEqual(app.isValidSerialNo("n/a"), false);
+  assert.strictEqual(app.isValidSerialNo("-"), false);
+
+  assert.strictEqual(app.isValidSerialNo("SN-12345"), true);
+  assert.strictEqual(app.isValidSerialNo("RO-9876"), true);
+});
+
 console.log("\n=================================================");
 console.log(`Audit Test Suite Completed: ${passedTests}/${totalTests} Passed`);
 console.log("=================================================");

@@ -289,6 +289,25 @@ function getPdfTextWidth(str, size) {
   return (w / 1000) * size;
 }
 
+function isValidSerialNo(val) {
+  if (!val) return false;
+  const s = String(val).trim();
+  if (!s) return false;
+  const lower = s.toLowerCase();
+  if (
+    lower === "enter" ||
+    lower === "enter serial" ||
+    lower === "enter serial no" ||
+    lower === "none" ||
+    lower === "na" ||
+    lower === "n/a" ||
+    lower === "-"
+  ) {
+    return false;
+  }
+  return true;
+}
+
 /**
  * Exact Tax Invoice vector layout matching print preview on standard A4 (595 x 842 pt).
  * Immune to mobile screen width constraints, ensuring pixel-perfect alignment on iPhone.
@@ -484,14 +503,18 @@ function buildInvoicePdfBlob(state, totals) {
       rightText(colAmt, y, formatMoney(amount), 9.5, false);
 
       // Sublines (Serial no / Valid till)
-      if (it.serialNo || it.validTill) {
+      const showSerial = isValidSerialNo(it.serialNo);
+      const hasValidTill = Boolean(it.validTill && String(it.validTill).trim());
+
+      if (showSerial || hasValidTill) {
         y -= 11;
         ops.push("BT /F1 7.5 Tf");
         ops.push(`${rgb(107, 122, 136)} rg`);
-        if (it.serialNo) {
-          ops.push(`1 0 0 1 ${colName} ${y} Tm (${pdfEscape("Serial no: " + it.serialNo)}) Tj`);
+        if (showSerial) {
+          const sText = String(it.serialNo).trim();
+          ops.push(`1 0 0 1 ${colName} ${y} Tm (${pdfEscape("Serial no: " + sText)}) Tj`);
         }
-        if (it.validTill) {
+        if (hasValidTill) {
           ops.push(`1 0 0 1 ${colWarr} ${y} Tm (${pdfEscape("Valid till " + it.validTill)}) Tj`);
         }
         ops.push("ET");
