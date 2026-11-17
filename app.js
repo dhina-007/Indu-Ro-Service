@@ -1,47 +1,48 @@
 /**
  * INDU RO SERVICE — Invoice Generator + Dashboard
- * LocalStorage-backed, mobile-first
+ * High-reliability, mobile-first, offline-ready
  */
 
 const STORAGE_KEY = "indu_ro_invoices";
 const DRAFT_KEY = "indu_ro_draft";
 
 const els = {
-  customerName: document.getElementById("customerName"),
-  customerPhone: document.getElementById("customerPhone"),
-  refNo: document.getElementById("refNo"),
-  issueDate: document.getElementById("issueDate"),
-  paymentMode: document.getElementById("paymentMode"),
-  profit: document.getElementById("profit"),
-  notes: document.getElementById("notes"),
-  itemsList: document.getElementById("itemsList"),
-  previewCustomerName: document.getElementById("previewCustomerName"),
-  previewCustomerPhone: document.getElementById("previewCustomerPhone"),
-  previewRefNo: document.getElementById("previewRefNo"),
-  previewDate: document.getElementById("previewDate"),
-  previewPayment: document.getElementById("previewPayment"),
-  previewItems: document.getElementById("previewItems"),
-  previewQtyTotal: document.getElementById("previewQtyTotal"),
-  previewGrandTotal: document.getElementById("previewGrandTotal"),
-  previewWords: document.getElementById("previewWords"),
-  previewNotes: document.getElementById("previewNotes"),
-  invoice: document.getElementById("invoice"),
-  toast: document.getElementById("toast"),
-  viewDashboard: document.getElementById("viewDashboard"),
-  viewCreate: document.getElementById("viewCreate"),
-  toolbarSubtitle: document.getElementById("toolbarSubtitle"),
-  toolbarCreateActions: document.getElementById("toolbarCreateActions"),
-  dashHeroLabel: document.getElementById("dashHeroLabel"),
-  dashHeroAmount: document.getElementById("dashHeroAmount"),
-  dashHeroMeta: document.getElementById("dashHeroMeta"),
-  dashCount: document.getElementById("dashCount"),
-  dashRevenue: document.getElementById("dashRevenue"),
-  dashProfit: document.getElementById("dashProfit"),
-  dashPeriodLabel: document.getElementById("dashPeriodLabel"),
-  dashList: document.getElementById("dashList"),
-  dashEmpty: document.getElementById("dashEmpty"),
-  editorBillTotal: document.getElementById("editorBillTotal"),
-  editorProfitTotal: document.getElementById("editorProfitTotal"),
+  customerName: typeof document !== "undefined" ? document.getElementById("customerName") : null,
+  customerPhone: typeof document !== "undefined" ? document.getElementById("customerPhone") : null,
+  refNo: typeof document !== "undefined" ? document.getElementById("refNo") : null,
+  issueDate: typeof document !== "undefined" ? document.getElementById("issueDate") : null,
+  paymentMode: typeof document !== "undefined" ? document.getElementById("paymentMode") : null,
+  profit: typeof document !== "undefined" ? document.getElementById("profit") : null,
+  notes: typeof document !== "undefined" ? document.getElementById("notes") : null,
+  itemsList: typeof document !== "undefined" ? document.getElementById("itemsList") : null,
+  previewCustomerName: typeof document !== "undefined" ? document.getElementById("previewCustomerName") : null,
+  previewCustomerPhone: typeof document !== "undefined" ? document.getElementById("previewCustomerPhone") : null,
+  previewRefNo: typeof document !== "undefined" ? document.getElementById("previewRefNo") : null,
+  previewDate: typeof document !== "undefined" ? document.getElementById("previewDate") : null,
+  previewPayment: typeof document !== "undefined" ? document.getElementById("previewPayment") : null,
+  previewItems: typeof document !== "undefined" ? document.getElementById("previewItems") : null,
+  previewQtyTotal: typeof document !== "undefined" ? document.getElementById("previewQtyTotal") : null,
+  previewGrandTotal: typeof document !== "undefined" ? document.getElementById("previewGrandTotal") : null,
+  previewWords: typeof document !== "undefined" ? document.getElementById("previewWords") : null,
+  previewNotes: typeof document !== "undefined" ? document.getElementById("previewNotes") : null,
+  invoice: typeof document !== "undefined" ? document.getElementById("invoice") : null,
+  toast: typeof document !== "undefined" ? document.getElementById("toast") : null,
+  viewDashboard: typeof document !== "undefined" ? document.getElementById("viewDashboard") : null,
+  viewCreate: typeof document !== "undefined" ? document.getElementById("viewCreate") : null,
+  toolbarSubtitle: typeof document !== "undefined" ? document.getElementById("toolbarSubtitle") : null,
+  toolbarCreateActions: typeof document !== "undefined" ? document.getElementById("toolbarCreateActions") : null,
+  dashHeroLabel: typeof document !== "undefined" ? document.getElementById("dashHeroLabel") : null,
+  dashHeroAmount: typeof document !== "undefined" ? document.getElementById("dashHeroAmount") : null,
+  dashHeroMeta: typeof document !== "undefined" ? document.getElementById("dashHeroMeta") : null,
+  dashCount: typeof document !== "undefined" ? document.getElementById("dashCount") : null,
+  dashRevenue: typeof document !== "undefined" ? document.getElementById("dashRevenue") : null,
+  dashProfit: typeof document !== "undefined" ? document.getElementById("dashProfit") : null,
+  dashPeriodLabel: typeof document !== "undefined" ? document.getElementById("dashPeriodLabel") : null,
+  dashList: typeof document !== "undefined" ? document.getElementById("dashList") : null,
+  dashEmpty: typeof document !== "undefined" ? document.getElementById("dashEmpty") : null,
+  editorBillTotal: typeof document !== "undefined" ? document.getElementById("editorBillTotal") : null,
+  editorProfitTotal: typeof document !== "undefined" ? document.getElementById("editorProfitTotal") : null,
+  btnSave: typeof document !== "undefined" ? document.getElementById("btnSave") : null,
 };
 
 let items = [];
@@ -50,11 +51,23 @@ let toastTimer = null;
 let currentPeriod = "day";
 let currentDashMode = "bill";
 let currentView = "dashboard";
+let isSaving = false;
 
-/* ---------- helpers ---------- */
+/* ---------- financial & calculation helpers ---------- */
+
+function roundPaise(val) {
+  const n = Number(val);
+  if (!Number.isFinite(n)) return 0;
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
+function parseNum(value) {
+  const n = parseFloat(value);
+  return Number.isFinite(n) ? Math.max(0, n) : 0;
+}
 
 function formatMoney(n) {
-  const num = Number(n) || 0;
+  const num = roundPaise(n);
   return num.toLocaleString("en-IN", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -62,9 +75,10 @@ function formatMoney(n) {
 }
 
 function formatMoneyShort(n) {
-  const num = Number(n) || 0;
+  const num = roundPaise(n);
   if (num >= 100000) {
-    return (num / 100000).toFixed(num % 100000 === 0 ? 0 : 1) + "L";
+    const inL = num / 100000;
+    return (inL % 1 === 0 ? inL.toFixed(0) : inL.toFixed(1)) + "L";
   }
   if (num >= 1000) {
     return num.toLocaleString("en-IN", { maximumFractionDigits: 0 });
@@ -72,10 +86,42 @@ function formatMoneyShort(n) {
   return formatMoney(num);
 }
 
-function formatDateDisplay(iso) {
-  if (!iso) return "—";
-  const [y, m, d] = iso.split("-");
-  return `${d}/${m}/${y}`;
+function formatQty(n) {
+  const num = Number(n) || 0;
+  return Number.isInteger(num) ? String(num) : num.toFixed(1);
+}
+
+function calcTotals(state) {
+  let qtyTotal = 0;
+  let totalPaise = 0;
+  (state.items || []).forEach((it) => {
+    const q = parseNum(it.qty);
+    const p = parseNum(it.price);
+    const rowPaise = Math.round(roundPaise(q * p) * 100);
+    qtyTotal = roundPaise(qtyTotal + q);
+    totalPaise += rowPaise;
+  });
+  return {
+    qtyTotal,
+    total: totalPaise / 100,
+  };
+}
+
+/* ---------- date helpers (timezone-safe, ISO calendar normalized) ---------- */
+
+function extractISODate(value) {
+  if (!value) return "";
+  if (value instanceof Date && !isNaN(value)) {
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
+  }
+  const str = String(value).trim();
+  const m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) {
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${m[1]}-${pad(Number(m[2]))}-${pad(Number(m[3]))}`;
+  }
+  return "";
 }
 
 function todayISO() {
@@ -84,34 +130,26 @@ function todayISO() {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+function formatDateDisplay(iso) {
+  const clean = extractISODate(iso);
+  if (!clean) return "—";
+  const [y, m, d] = clean.split("-");
+  return `${d}/${m}/${y}`;
+}
+
 function generateRefNo() {
   return Date.now().toString().slice(-5);
 }
 
 function showToast(message, duration = 2400) {
+  if (!els.toast) return;
   els.toast.textContent = message;
   els.toast.classList.add("show");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => els.toast.classList.remove("show"), duration);
+  toastTimer = setTimeout(() => els.toast && els.toast.classList.remove("show"), duration);
 }
 
-function parseNum(value) {
-  const n = parseFloat(value);
-  return Number.isFinite(n) ? n : 0;
-}
-
-function startOfDay(date) {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-function parseIssueDate(iso) {
-  if (!iso) return null;
-  const [y, m, d] = iso.split("-").map(Number);
-  if (!y || !m || !d) return null;
-  return new Date(y, m - 1, d);
-}
+/* ---------- warranty calculations (month-end rollover safe) ---------- */
 
 function parseWarranty(warrantyText) {
   if (warrantyText === undefined || warrantyText === null) {
@@ -130,7 +168,7 @@ function parseWarranty(warrantyText) {
     return { value: parseInt(monthMatch[1], 10), unit: "Month" };
   }
   const numOnly = parseInt(clean, 10);
-  if (!isNaN(numOnly)) {
+  if (!isNaN(numOnly) && numOnly > 0) {
     return { value: numOnly, unit: "Year" };
   }
   return { value: 1, unit: "Year" };
@@ -146,36 +184,58 @@ function buildWarrantyText(value, unit = "Year") {
 }
 
 function calcWarrantyValidity(issueDateIso, warrantyText) {
-  if (!issueDateIso || !warrantyText) return "";
+  const cleanDate = extractISODate(issueDateIso);
+  if (!cleanDate || !warrantyText) return "";
   const clean = String(warrantyText).trim().toLowerCase();
-  if (clean === "none" || clean === "no warranty" || clean === "na" || clean === "n/a" || clean === "0") return "";
+  if (clean === "" || clean === "none" || clean === "no warranty" || clean === "na" || clean === "n/a" || clean === "0") {
+    return "";
+  }
 
-  const [y, m, d] = issueDateIso.split("-").map(Number);
+  const [y, m, d] = cleanDate.split("-").map(Number);
   if (!y || !m || !d) return "";
-
-  const date = new Date(y, m - 1, d);
 
   const yearMatch = clean.match(/(\d+)\s*y/);
   const monthMatch = clean.match(/(\d+)\s*m/);
 
+  let targetYear = y;
+  let targetMonth = m - 1; // 0-indexed month
+  let targetDay = d;
+
   if (yearMatch) {
     const years = parseInt(yearMatch[1], 10);
-    date.setFullYear(date.getFullYear() + years);
-    date.setDate(date.getDate() - 1);
+    if (isNaN(years) || years <= 0) return "";
+    targetYear += years;
   } else if (monthMatch) {
     const months = parseInt(monthMatch[1], 10);
-    date.setMonth(date.getMonth() + months);
-    date.setDate(date.getDate() - 1);
+    if (isNaN(months) || months <= 0) return "";
+    const totalMonths = targetMonth + months;
+    targetYear += Math.floor(totalMonths / 12);
+    targetMonth = ((totalMonths % 12) + 12) % 12;
   } else {
-    return "";
+    const numOnly = parseInt(clean, 10);
+    if (!isNaN(numOnly) && numOnly > 0) {
+      targetYear += numOnly;
+    } else {
+      return "";
+    }
   }
 
+  // Safe month-end clamping (handles Feb 28, Feb 29 in leap year, 30, 31)
+  const maxDaysInTargetMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
+  targetDay = Math.min(targetDay, maxDaysInTargetMonth);
+
+  // Expiration is target date minus 1 day (standard warranty convention)
+  const resultDate = new Date(targetYear, targetMonth, targetDay);
+  resultDate.setDate(resultDate.getDate() - 1);
+
   const pad = (n) => String(n).padStart(2, "0");
-  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()}`;
+  return `${pad(resultDate.getDate())}/${pad(resultDate.getMonth() + 1)}/${resultDate.getFullYear()}`;
 }
 
+/* ---------- amount in words (Indian numbering system) ---------- */
+
 function numberToWordsIndian(num) {
-  const n = Math.round(Number(num) * 100) / 100;
+  const n = roundPaise(num);
   if (!Number.isFinite(n) || n === 0) return "Zero Rupees Only";
 
   const a = [
@@ -234,36 +294,49 @@ function showView(view) {
   currentView = view;
   const isDash = view === "dashboard";
 
-  els.viewDashboard.classList.toggle("hidden", !isDash);
-  els.viewCreate.classList.toggle("hidden", isDash);
-  els.toolbarSubtitle.textContent = isDash ? "Dashboard" : "Create invoice";
-  els.toolbarCreateActions.hidden = isDash;
+  if (els.viewDashboard) els.viewDashboard.classList.toggle("hidden", !isDash);
+  if (els.viewCreate) els.viewCreate.classList.toggle("hidden", isDash);
 
-  document.querySelectorAll(".nav-item").forEach((btn) => {
-    const active = btn.dataset.nav === view;
-    btn.classList.toggle("active", active);
-    if (active) btn.setAttribute("aria-current", "page");
-    else btn.removeAttribute("aria-current");
-  });
+  if (els.toolbarSubtitle) {
+    if (isDash) {
+      els.toolbarSubtitle.textContent = "Dashboard";
+    } else {
+      els.toolbarSubtitle.textContent = currentId && els.refNo && els.refNo.value
+        ? `Edit invoice #${els.refNo.value}`
+        : "Create invoice";
+    }
+  }
+  if (els.toolbarCreateActions) els.toolbarCreateActions.hidden = isDash;
+
+  if (typeof document !== "undefined") {
+    document.querySelectorAll(".nav-item").forEach((btn) => {
+      const active = btn.dataset.nav === view;
+      btn.classList.toggle("active", active);
+      if (active) btn.setAttribute("aria-current", "page");
+      else btn.removeAttribute("aria-current");
+    });
+  }
 
   if (isDash) renderDashboard();
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  if (typeof window !== "undefined" && window.scrollTo) {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 }
 
-/* ---------- state ---------- */
+/* ---------- state & form ---------- */
 
 function getFormState() {
   return {
-    id: currentId || crypto.randomUUID(),
+    id: currentId || (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
     customerName: els.customerName ? els.customerName.value.trim() : "",
     customerPhone: els.customerPhone ? els.customerPhone.value.trim() : "",
     refNo: els.refNo ? els.refNo.value.trim() : "",
-    issueDate: els.issueDate ? els.issueDate.value : todayISO(),
+    issueDate: els.issueDate ? extractISODate(els.issueDate.value) || todayISO() : todayISO(),
     paymentMode: els.paymentMode ? els.paymentMode.value.trim() : "Paid – UPI / Cash",
-    profit: els.profit && els.profit.value !== "" ? parseNum(els.profit.value) : 0,
+    profit: els.profit && els.profit.value !== "" ? roundPaise(parseNum(els.profit.value)) : 0,
     notes: els.notes ? els.notes.value.trim() : "",
     items: items.map((it) => ({
-      name: it.name.trim(),
+      name: (it.name || "").trim(),
       serialNo: (it.serialNo || "").trim(),
       warrantyValue: it.warrantyValue !== undefined ? it.warrantyValue : "",
       warrantyUnit: it.warrantyUnit || "Year",
@@ -276,20 +349,10 @@ function getFormState() {
   };
 }
 
-function calcTotals(state) {
-  let qtyTotal = 0;
-  let total = 0;
-  (state.items || []).forEach((it) => {
-    qtyTotal += parseNum(it.qty);
-    total += parseNum(it.qty) * parseNum(it.price);
-  });
-  return { qtyTotal, total };
-}
-
 /* ---------- items UI ---------- */
 
 function addItem(data = { name: "", serialNo: "", warrantyValue: 1, warrantyUnit: "Year", warranty: "1 Year", validTill: "", qty: 1, price: "" }) {
-  const issueDate = els.issueDate ? els.issueDate.value : todayISO();
+  const issueDate = els.issueDate ? extractISODate(els.issueDate.value) || todayISO() : todayISO();
   let warrantyValue = data.warrantyValue;
   let warrantyUnit = data.warrantyUnit;
   if (warrantyValue === undefined || warrantyUnit === undefined) {
@@ -300,15 +363,15 @@ function addItem(data = { name: "", serialNo: "", warrantyValue: 1, warrantyUnit
   const warranty = buildWarrantyText(warrantyValue, warrantyUnit);
   const validTill = data.validTill || calcWarrantyValidity(issueDate, warranty);
   items.push({
-    id: crypto.randomUUID(),
+    id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
     name: data.name || "",
     serialNo: data.serialNo || "",
     warrantyValue: warrantyValue,
     warrantyUnit: warrantyUnit,
     warranty: warranty,
     validTill: validTill,
-    qty: data.qty ?? 1,
-    price: data.price ?? "",
+    qty: data.qty !== undefined && data.qty !== "" ? parseNum(data.qty) : 1,
+    price: data.price !== undefined && data.price !== "" ? parseNum(data.price) : "",
   });
   renderItems();
   updatePreview();
@@ -326,6 +389,7 @@ function removeItem(id) {
 }
 
 function renderItems() {
+  if (!els.itemsList) return;
   els.itemsList.innerHTML = "";
   items.forEach((it, index) => {
     const card = document.createElement("div");
@@ -375,7 +439,8 @@ function renderItems() {
 
     const amountEl = card.querySelector("[data-amount]");
     const hintEl = card.querySelector("[data-hint]");
-    amountEl.textContent = formatMoney(parseNum(it.qty) * parseNum(it.price));
+    const lineTotal = roundPaise(parseNum(it.qty) * parseNum(it.price));
+    amountEl.textContent = formatMoney(lineTotal);
 
     card.querySelector('[data-action="remove"]').addEventListener("click", () => {
       removeItem(it.id);
@@ -384,12 +449,16 @@ function renderItems() {
     const onFieldChange = (el) => {
       const field = el.dataset.field;
       it[field] = el.value;
+      if (field === "qty" || field === "price") {
+        it[field] = el.value !== "" ? parseNum(el.value) : "";
+      }
       if (field === "warrantyValue" || field === "warrantyUnit") {
         it.warranty = buildWarrantyText(it.warrantyValue, it.warrantyUnit);
         it.validTill = calcWarrantyValidity(els.issueDate.value, it.warranty);
         hintEl.textContent = it.validTill ? `Valid till ${it.validTill}` : "";
       }
-      amountEl.textContent = formatMoney(parseNum(it.qty) * parseNum(it.price));
+      const updatedTotal = roundPaise(parseNum(it.qty) * parseNum(it.price));
+      amountEl.textContent = formatMoney(updatedTotal);
       updatePreview();
       persistDraft();
     };
@@ -430,58 +499,57 @@ function updatePreview() {
     els.editorProfitTotal.textContent = `₹ ${formatMoney(parseNum(state.profit))}`;
   }
 
-  els.previewCustomerName.textContent = state.customerName || "Customer Name";
-  els.previewCustomerPhone.textContent = state.customerPhone || "—";
-  els.previewRefNo.textContent = state.refNo || "—";
-  els.previewDate.textContent = formatDateDisplay(state.issueDate);
-  els.previewPayment.textContent = state.paymentMode || "Paid – UPI / Cash";
+  if (els.previewCustomerName) els.previewCustomerName.textContent = state.customerName || "Customer Name";
+  if (els.previewCustomerPhone) els.previewCustomerPhone.textContent = state.customerPhone || "—";
+  if (els.previewRefNo) els.previewRefNo.textContent = state.refNo || "—";
+  if (els.previewDate) els.previewDate.textContent = formatDateDisplay(state.issueDate);
+  if (els.previewPayment) els.previewPayment.textContent = state.paymentMode || "Paid – UPI / Cash";
 
-  const filled = state.items.filter((it) => it.name || it.qty || it.price);
-  if (filled.length === 0) {
-    els.previewItems.innerHTML =
-      '<tr class="empty-row"><td colspan="6">No products added</td></tr>';
-  } else {
-    els.previewItems.innerHTML = filled
-      .map((it, i) => {
-        const amount = it.qty * it.price;
-        const serialHtml = it.serialNo
-          ? `<span class="sub">Serial no: ${escapeHtml(it.serialNo)}</span>`
-          : "";
-        const warrantyHtml = it.warranty
-          ? `<span class="warr">${escapeHtml(it.warranty)}</span>`
-          : "—";
-        const validityHtml = it.validTill
-          ? `<span class="sub">Valid till ${escapeHtml(it.validTill)}</span>`
-          : "";
+  if (els.previewItems) {
+    const filled = state.items.filter((it) => it.name || it.qty || it.price);
+    if (filled.length === 0) {
+      els.previewItems.innerHTML =
+        '<tr class="empty-row"><td colspan="6">No products added</td></tr>';
+    } else {
+      els.previewItems.innerHTML = filled
+        .map((it, i) => {
+          const amount = roundPaise(parseNum(it.qty) * parseNum(it.price));
+          const serialHtml = it.serialNo
+            ? `<span class="sub">Serial no: ${escapeHtml(it.serialNo)}</span>`
+            : "";
+          const warrantyHtml = it.warranty
+            ? `<span class="warr">${escapeHtml(it.warranty)}</span>`
+            : "—";
+          const validityHtml = it.validTill
+            ? `<span class="sub">Valid till ${escapeHtml(it.validTill)}</span>`
+            : "";
 
-        return `<tr>
-          <td>${i + 1}</td>
-          <td>${escapeHtml(it.name) || "—"}${serialHtml}</td>
-          <td>${warrantyHtml}${validityHtml}</td>
-          <td class="n">${formatQty(it.qty)}</td>
-          <td class="n">${formatMoney(it.price)}</td>
-          <td class="n">${formatMoney(amount)}</td>
-        </tr>`;
-      })
-      .join("");
+          return `<tr>
+            <td>${i + 1}</td>
+            <td>${escapeHtml(it.name) || "—"}${serialHtml}</td>
+            <td>${warrantyHtml}${validityHtml}</td>
+            <td class="n">${formatQty(it.qty)}</td>
+            <td class="n">${formatMoney(it.price)}</td>
+            <td class="n">${formatMoney(amount)}</td>
+          </tr>`;
+        })
+        .join("");
+    }
   }
 
-  els.previewQtyTotal.textContent = formatQty(totals.qtyTotal);
-  els.previewGrandTotal.textContent = `₹ ${formatMoney(totals.total)}`;
-  els.previewWords.textContent = `Amount in words: ${numberToWordsIndian(totals.total)}`;
+  if (els.previewQtyTotal) els.previewQtyTotal.textContent = formatQty(totals.qtyTotal);
+  if (els.previewGrandTotal) els.previewGrandTotal.textContent = `₹ ${formatMoney(totals.total)}`;
+  if (els.previewWords) els.previewWords.textContent = `Amount in words: ${numberToWordsIndian(totals.total)}`;
 
-  if (state.notes) {
-    els.previewNotes.hidden = false;
-    els.previewNotes.textContent = state.notes;
-  } else {
-    els.previewNotes.hidden = true;
-    els.previewNotes.textContent = "";
+  if (els.previewNotes) {
+    if (state.notes) {
+      els.previewNotes.hidden = false;
+      els.previewNotes.textContent = state.notes;
+    } else {
+      els.previewNotes.hidden = true;
+      els.previewNotes.textContent = "";
+    }
   }
-}
-
-function formatQty(n) {
-  const num = Number(n) || 0;
-  return Number.isInteger(num) ? String(num) : num.toFixed(1);
 }
 
 /* ---------- storage ---------- */
@@ -496,12 +564,20 @@ function loadInvoices() {
 }
 
 function saveInvoices(list) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+  } catch (e) {
+    console.warn("saveInvoices failed:", e);
+  }
 }
 
 function persistDraft() {
-  const state = getFormState();
-  localStorage.setItem(DRAFT_KEY, JSON.stringify(state));
+  try {
+    const state = getFormState();
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(state));
+  } catch (e) {
+    console.warn("persistDraft failed:", e);
+  }
 }
 
 function loadDraft() {
@@ -513,15 +589,24 @@ function loadDraft() {
   }
 }
 
+function clearDraft() {
+  try {
+    localStorage.removeItem(DRAFT_KEY);
+  } catch (e) {
+    console.warn("clearDraft failed:", e);
+  }
+}
+
 function applyState(state) {
   currentId = state.id || null;
-  els.customerName.value = state.customerName || "";
-  els.customerPhone.value = state.customerPhone || "";
-  els.refNo.value = state.refNo || generateRefNo();
-  els.issueDate.value = state.issueDate || todayISO();
+  if (els.customerName) els.customerName.value = state.customerName || "";
+  if (els.customerPhone) els.customerPhone.value = state.customerPhone || "";
+  if (els.refNo) els.refNo.value = state.refNo || generateRefNo();
+  if (els.issueDate) els.issueDate.value = extractISODate(state.issueDate) || todayISO();
   if (els.paymentMode) els.paymentMode.value = state.paymentMode || "Paid – UPI / Cash";
   if (els.profit) els.profit.value = state.profit !== undefined && state.profit !== null && state.profit !== "" ? state.profit : "";
-  els.notes.value = state.notes || "";
+  if (els.notes) els.notes.value = state.notes || "";
+
   items = (state.items && state.items.length
     ? state.items
     : [{ name: "", serialNo: "", warrantyValue: 1, warrantyUnit: "Year", warranty: "1 Year", validTill: "", qty: 1, price: "" }]
@@ -536,15 +621,15 @@ function applyState(state) {
     const warranty = buildWarrantyText(warrantyValue, warrantyUnit);
     const validTill = it.validTill || calcWarrantyValidity(state.issueDate || todayISO(), warranty);
     return {
-      id: crypto.randomUUID(),
+      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
       name: it.name || "",
       serialNo: it.serialNo || "",
       warrantyValue: warrantyValue,
       warrantyUnit: warrantyUnit,
       warranty: warranty,
       validTill: validTill,
-      qty: it.qty ?? 1,
-      price: it.price ?? "",
+      qty: it.qty !== undefined && it.qty !== "" ? parseNum(it.qty) : 1,
+      price: it.price !== undefined && it.price !== "" ? parseNum(it.price) : "",
     };
   });
   renderItems();
@@ -552,7 +637,7 @@ function applyState(state) {
 }
 
 function newInvoice() {
-  currentId = crypto.randomUUID();
+  currentId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
   applyState({
     id: currentId,
     customerName: "",
@@ -564,169 +649,231 @@ function newInvoice() {
     notes: "",
     items: [{ name: "", serialNo: "", warrantyValue: 1, warrantyUnit: "Year", warranty: "1 Year", validTill: "", qty: 1, price: "" }],
   });
-  persistDraft();
+  clearDraft();
+  if (els.toolbarSubtitle && currentView === "create") {
+    els.toolbarSubtitle.textContent = "Create invoice";
+  }
   showToast("New invoice ready");
 }
 
-function saveInvoice() {
+async function saveInvoice() {
+  if (isSaving) return;
+
   const state = getFormState();
   if (!state.customerName) {
     showToast("Enter customer name");
-    els.customerName.focus();
+    if (els.customerName) els.customerName.focus();
     return;
   }
-  if (!state.customerPhone) {
-    showToast("Enter customer contact");
-    els.customerPhone.focus();
+  if (!state.customerPhone || state.customerPhone.length < 10) {
+    showToast("Enter 10-digit customer mobile number");
+    if (els.customerPhone) els.customerPhone.focus();
     return;
   }
   const hasItem = state.items.some((it) => it.name && it.qty > 0);
   if (!hasItem) {
-    showToast("Add at least one product");
+    showToast("Add at least one product with name and quantity");
     return;
   }
 
-  currentId = state.id;
-  const list = loadInvoices();
-  const idx = list.findIndex((inv) => inv.id === state.id);
-  if (idx >= 0) list[idx] = state;
-  else list.unshift(state);
-  saveInvoices(list);
-  persistDraft();
-  showToast("Invoice saved");
-  renderDashboard();
+  isSaving = true;
+  if (els.btnSave) {
+    els.btnSave.disabled = true;
+    els.btnSave.textContent = "Saving…";
+  }
 
-  if (window.invoiceDb) {
-    window.invoiceDb
-      .saveInvoice(state)
-      .then((res) => {
-        if (res && res.localOnly === false) {
-          showToast("Saved & synced to Supabase");
-        }
-      })
-      .catch((err) => console.warn("Supabase save error:", err));
+  try {
+    currentId = state.id;
+    state.updatedAt = new Date().toISOString();
+
+    // 1. Save to local storage
+    const list = loadInvoices();
+    const idx = list.findIndex((inv) => inv.id === state.id);
+    if (idx >= 0) list[idx] = state;
+    else list.unshift(state);
+    saveInvoices(list);
+
+    // 2. Clear uncommitted draft since changes are successfully saved
+    clearDraft();
+
+    // 3. Update dashboard immediately without requiring page reload
+    renderDashboard();
+    if (els.toolbarSubtitle && currentView === "create") {
+      els.toolbarSubtitle.textContent = `Edit invoice #${state.refNo}`;
+    }
+    showToast("Invoice saved successfully");
+
+    // 4. Persist to Supabase
+    if (window.invoiceDb) {
+      const res = await window.invoiceDb.saveInvoice(state);
+      if (res && res.localOnly === false) {
+        showToast("Changes saved & synced to Supabase");
+      } else if (res && res.localOnly === true) {
+        showToast("Invoice saved locally (waiting to sync)");
+      }
+    }
+  } catch (err) {
+    console.error("Save invoice error:", err);
+    showToast("Unable to save invoice. Please try again.");
+  } finally {
+    isSaving = false;
+    if (els.btnSave) {
+      els.btnSave.disabled = false;
+      els.btnSave.textContent = "Save invoice";
+    }
   }
 }
 
 function deleteInvoice(id) {
-  const list = loadInvoices().filter((inv) => inv.id !== id);
+  if (!id) return;
+  const strId = String(id);
+  const list = loadInvoices().filter((inv) => String(inv.id) !== strId);
   saveInvoices(list);
+
   if (window.invoiceDb) {
-    window.invoiceDb.deleteInvoice(id);
+    window.invoiceDb.deleteInvoice(strId);
   }
-  if (currentId === id) {
-    const draft = loadDraft();
-    if (draft && draft.id === id) localStorage.removeItem(DRAFT_KEY);
+
+  if (String(currentId) === strId) {
+    clearDraft();
     newInvoice();
   }
+
   renderDashboard();
   showToast("Invoice deleted");
 }
 
 function openInvoice(inv) {
   applyState(inv);
-  persistDraft();
   showView("create");
+  if (els.toolbarSubtitle) {
+    els.toolbarSubtitle.textContent = `Edit invoice #${inv.refNo || ""}`;
+  }
   showToast("Invoice loaded");
 }
 
-/* ---------- dashboard filters ---------- */
+/* ---------- dashboard filters (timezone-safe, inclusive calendar bounds) ---------- */
 
-function getPeriodRange(period, refDate = new Date()) {
-  const today = startOfDay(refDate);
+function getPeriodBounds(period, refDate = new Date()) {
+  const pad = (n) => String(n).padStart(2, "0");
+  const y = refDate.getFullYear();
+  const m = refDate.getMonth();
+  const d = refDate.getDate();
+  const refIso = `${y}-${pad(m + 1)}-${pad(d)}`;
+
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
   if (period === "day") {
-    const start = today;
-    const end = new Date(today);
-    end.setHours(23, 59, 59, 999);
-    return { start, end, label: formatPeriodLabel(period, start) };
+    const isToday = refIso === todayISO();
+    return {
+      start: refIso,
+      end: refIso,
+      label: isToday ? `Today · ${d} ${months[m]} ${y}` : `${d} ${months[m]} ${y}`,
+    };
   }
 
   if (period === "week") {
-    const day = today.getDay();
-    const mondayOffset = day === 0 ? -6 : 1 - day;
-    const start = new Date(today);
-    start.setDate(today.getDate() + mondayOffset);
-    const end = new Date(start);
-    end.setDate(start.getDate() + 6);
-    end.setHours(23, 59, 59, 999);
-    return { start, end, label: formatPeriodLabel(period, start, end) };
+    const dayOfWeek = refDate.getDay();
+    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const monday = new Date(y, m, d + mondayOffset);
+    const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
+    const start = `${monday.getFullYear()}-${pad(monday.getMonth() + 1)}-${pad(monday.getDate())}`;
+    const end = `${sunday.getFullYear()}-${pad(sunday.getMonth() + 1)}-${pad(sunday.getDate())}`;
+    const label = `${monday.getDate()} ${months[monday.getMonth()]} – ${sunday.getDate()} ${months[sunday.getMonth()]} ${sunday.getFullYear()}`;
+    return { start, end, label };
   }
 
   if (period === "month") {
-    const start = new Date(today.getFullYear(), today.getMonth(), 1);
-    const end = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
-    return { start, end, label: formatPeriodLabel(period, start) };
+    const lastDay = new Date(y, m + 1, 0).getDate();
+    const start = `${y}-${pad(m + 1)}-01`;
+    const end = `${y}-${pad(m + 1)}-${pad(lastDay)}`;
+    return {
+      start,
+      end,
+      label: `${months[m]} ${y}`,
+    };
   }
 
-  const start = new Date(today.getFullYear(), 0, 1);
-  const end = new Date(today.getFullYear(), 11, 31, 23, 59, 59, 999);
-  return { start, end, label: formatPeriodLabel(period, start) };
+  // Year filter
+  return {
+    start: `${y}-01-01`,
+    end: `${y}-12-31`,
+    label: `Year ${y}`,
+  };
 }
 
-function formatPeriodLabel(period, start, end) {
-  const months = [
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-  ];
-  if (period === "day") {
-    const isToday = start.toDateString() === startOfDay(new Date()).toDateString();
-    return isToday
-      ? `Today · ${start.getDate()} ${months[start.getMonth()]} ${start.getFullYear()}`
-      : `${start.getDate()} ${months[start.getMonth()]} ${start.getFullYear()}`;
-  }
-  if (period === "week") {
-    return `${start.getDate()} ${months[start.getMonth()]} – ${end.getDate()} ${months[end.getMonth()]} ${end.getFullYear()}`;
-  }
-  if (period === "month") {
-    return `${months[start.getMonth()]} ${start.getFullYear()}`;
-  }
-  return `Year ${start.getFullYear()}`;
-}
+function filterInvoicesByPeriod(invoices, period, refDate = new Date()) {
+  const { start, end, label } = getPeriodBounds(period, refDate);
+  const filtered = (invoices || []).filter((inv) => {
+    const iso = extractISODate(inv.issueDate);
+    if (!iso) return false;
+    return iso >= start && iso <= end;
+  });
 
-function filterInvoicesByPeriod(invoices, period) {
-  const { start, end, label } = getPeriodRange(period);
-  const filtered = invoices
-    .filter((inv) => {
-      const d = parseIssueDate(inv.issueDate);
-      if (!d) return false;
-      return d >= start && d <= end;
-    })
-    .sort((a, b) => (b.issueDate || "").localeCompare(a.issueDate || ""));
-  return { filtered, label };
+  filtered.sort((a, b) => {
+    const da = extractISODate(a.issueDate);
+    const db = extractISODate(b.issueDate);
+    if (da !== db) return db.localeCompare(da);
+    const ta = String(a.updatedAt || a.created_at || "");
+    const tb = String(b.updatedAt || b.created_at || "");
+    if (ta !== tb) return tb.localeCompare(ta);
+    return String(b.refNo || "").localeCompare(String(a.refNo || ""));
+  });
+
+  return { filtered, label, start, end };
 }
 
 function renderDashboard() {
+  if (!els.dashList) return;
+
   const invoices = loadInvoices();
   const { filtered, label } = filterInvoicesByPeriod(invoices, currentPeriod);
 
-  let revenue = 0;
-  let totalProfit = 0;
+  let totalRevenuePaise = 0;
+  let totalProfitPaise = 0;
+
   filtered.forEach((inv) => {
-    revenue += calcTotals(inv).total;
-    totalProfit += parseNum(inv.profit);
+    const totals = calcTotals(inv);
+    totalRevenuePaise += Math.round(totals.total * 100);
+    totalProfitPaise += Math.round(roundPaise(parseNum(inv.profit)) * 100);
   });
 
+  const revenue = totalRevenuePaise / 100;
+  const totalProfit = totalProfitPaise / 100;
   const isProfitMode = currentDashMode === "profit";
 
   if (els.dashHeroLabel) {
     els.dashHeroLabel.textContent = isProfitMode ? "Total profit" : "Total bill amount";
   }
-  els.dashHeroAmount.textContent = isProfitMode
-    ? `₹ ${formatMoney(totalProfit)}`
-    : `₹ ${formatMoney(revenue)}`;
-  els.dashHeroMeta.textContent = `${filtered.length} invoice${filtered.length === 1 ? "" : "s"}`;
-  els.dashCount.textContent = String(filtered.length);
-  els.dashRevenue.textContent = `₹ ${formatMoneyShort(revenue)}`;
-  if (els.dashProfit) els.dashProfit.textContent = `₹ ${formatMoneyShort(totalProfit)}`;
-  els.dashPeriodLabel.textContent = label;
+  if (els.dashHeroAmount) {
+    els.dashHeroAmount.textContent = isProfitMode
+      ? `₹ ${formatMoney(totalProfit)}`
+      : `₹ ${formatMoney(revenue)}`;
+  }
+  if (els.dashHeroMeta) {
+    els.dashHeroMeta.textContent = `${filtered.length} invoice${filtered.length === 1 ? "" : "s"}`;
+  }
+  if (els.dashCount) {
+    els.dashCount.textContent = String(filtered.length);
+  }
+  if (els.dashRevenue) {
+    els.dashRevenue.textContent = `₹ ${formatMoneyShort(revenue)}`;
+  }
+  if (els.dashProfit) {
+    els.dashProfit.textContent = `₹ ${formatMoneyShort(totalProfit)}`;
+  }
+  if (els.dashPeriodLabel) {
+    els.dashPeriodLabel.textContent = label;
+  }
 
   els.dashList.innerHTML = "";
-  els.dashEmpty.classList.toggle("show", filtered.length === 0);
+  if (els.dashEmpty) {
+    els.dashEmpty.classList.toggle("show", filtered.length === 0);
+  }
 
   filtered.forEach((inv) => {
     const totals = calcTotals(inv);
-    const profitNum = parseNum(inv.profit);
+    const profitNum = roundPaise(parseNum(inv.profit));
     const hasProfit = inv.profit !== undefined && inv.profit !== null && String(inv.profit).trim() !== "";
 
     const li = document.createElement("li");
@@ -754,7 +901,7 @@ function renderDashboard() {
         </div>
       `;
     } else {
-      const profitBadge = hasProfit || profitNum !== 0
+      const profitBadge = hasProfit || profitNum > 0
         ? `<span class="dash-profit-badge">Profit: ₹ ${formatMoney(profitNum)}</span>`
         : "";
 
@@ -784,7 +931,10 @@ function renderDashboard() {
     li.querySelector('[data-act="open"]').addEventListener("click", () => openInvoice(inv));
     li.querySelector('[data-act="whatsapp"]').addEventListener("click", () => shareWhatsAppInvoice(inv));
     li.querySelector('[data-act="delete"]').addEventListener("click", () => {
-      if (confirm(`Delete invoice #${inv.refNo}?`)) deleteInvoice(inv.id);
+      const custText = inv.customerName ? ` for ${inv.customerName}` : "";
+      if (confirm(`Delete invoice #${inv.refNo}${custText}?`)) {
+        deleteInvoice(inv.id);
+      }
     });
     els.dashList.appendChild(li);
   });
@@ -792,25 +942,29 @@ function renderDashboard() {
 
 function setDashMode(mode) {
   currentDashMode = mode;
-  document.querySelectorAll(".dash-mode-tab").forEach((tab) => {
-    const active = tab.dataset.mode === mode;
-    tab.classList.toggle("active", active);
-    tab.setAttribute("aria-selected", active ? "true" : "false");
-  });
+  if (typeof document !== "undefined") {
+    document.querySelectorAll(".dash-mode-tab").forEach((tab) => {
+      const active = tab.dataset.mode === mode;
+      tab.classList.toggle("active", active);
+      tab.setAttribute("aria-selected", active ? "true" : "false");
+    });
+  }
   renderDashboard();
 }
 
 function setPeriod(period) {
   currentPeriod = period;
-  document.querySelectorAll(".period-tab").forEach((tab) => {
-    const active = tab.dataset.period === period;
-    tab.classList.toggle("active", active);
-    tab.setAttribute("aria-selected", active ? "true" : "false");
-  });
+  if (typeof document !== "undefined") {
+    document.querySelectorAll(".period-tab").forEach((tab) => {
+      const active = tab.dataset.period === period;
+      tab.classList.toggle("active", active);
+      tab.setAttribute("aria-selected", active ? "true" : "false");
+    });
+  }
   renderDashboard();
 }
 
-/* ---------- whatsapp share ---------- */
+/* ---------- whatsapp share (strictly private profit) ---------- */
 
 function shareWhatsAppInvoice(targetState = null) {
   const isTargetProvided = !!targetState;
@@ -837,6 +991,7 @@ function shareWhatsAppInvoice(targetState = null) {
     return;
   }
 
+  // Privacy: Profit NEVER appears in customer-facing message
   const message = `Hi ${customerName},
 Details of your Sale Invoice from INDU Enterprises
 Invoice Amount: ${totalStr}
@@ -864,23 +1019,19 @@ INDU Enterprises
   // 2. Open WhatsApp directly to customer's chat on Android, iPhone & Desktop
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   if (isMobile) {
-    // Native deep-link opens WhatsApp directly into the customer's chat
     const appUrl = `whatsapp://send?phone=${phone}&text=${encodedMsg}`;
     const webUrl = `https://wa.me/${phone}?text=${encodedMsg}`;
 
-    // Anchor click triggers native protocol handler on both Android Chrome & iOS Safari
     const a = document.createElement("a");
     a.href = appUrl;
     document.body.appendChild(a);
     a.click();
     a.remove();
 
-    // Universal link fallback
     setTimeout(() => {
       window.location.href = webUrl;
     }, 1000);
   } else {
-    // Desktop: WhatsApp Web direct conversation
     const desktopUrl = `https://web.whatsapp.com/send?phone=${phone}&text=${encodedMsg}`;
     window.open(desktopUrl, "_blank");
   }
@@ -888,7 +1039,7 @@ INDU Enterprises
   showToast("Opening WhatsApp chat… invoice PDF downloaded!");
 }
 
-/* ---------- init ---------- */
+/* ---------- init & event binding ---------- */
 
 function bindEvents() {
   [
@@ -913,25 +1064,43 @@ function bindEvents() {
     }
   });
 
-  document.getElementById("btnAddItem").addEventListener("click", () => addItem());
-  document.getElementById("btnSave").addEventListener("click", saveInvoice);
-  document.getElementById("btnNew").addEventListener("click", () => {
-    newInvoice();
-    showView("create");
-  });
-  document.getElementById("btnPrint").addEventListener("click", printInvoice);
-  document.getElementById("btnDownload").addEventListener("click", downloadPdf);
-  document.getElementById("btnPrintMobile").addEventListener("click", printInvoice);
-  document.getElementById("btnDownloadMobile").addEventListener("click", downloadPdf);
+  const btnAddItem = document.getElementById("btnAddItem");
+  if (btnAddItem) btnAddItem.addEventListener("click", () => addItem());
+
+  const btnSave = document.getElementById("btnSave");
+  if (btnSave) btnSave.addEventListener("click", saveInvoice);
+
+  const btnNew = document.getElementById("btnNew");
+  if (btnNew) {
+    btnNew.addEventListener("click", () => {
+      newInvoice();
+      showView("create");
+    });
+  }
+
+  const btnPrint = document.getElementById("btnPrint");
+  if (btnPrint) btnPrint.addEventListener("click", printInvoice);
+
+  const btnDownload = document.getElementById("btnDownload");
+  if (btnDownload) btnDownload.addEventListener("click", downloadPdf);
+
+  const btnPrintMobile = document.getElementById("btnPrintMobile");
+  if (btnPrintMobile) btnPrintMobile.addEventListener("click", printInvoice);
+
+  const btnDownloadMobile = document.getElementById("btnDownloadMobile");
+  if (btnDownloadMobile) btnDownloadMobile.addEventListener("click", downloadPdf);
 
   const btnWA = document.getElementById("btnWhatsApp");
   if (btnWA) btnWA.addEventListener("click", () => shareWhatsAppInvoice());
+
   const btnWAMobile = document.getElementById("btnWhatsAppMobile");
   if (btnWAMobile) btnWAMobile.addEventListener("click", () => shareWhatsAppInvoice());
 
-  els.customerPhone.addEventListener("input", () => {
-    els.customerPhone.value = els.customerPhone.value.replace(/\D/g, "").slice(0, 10);
-  });
+  if (els.customerPhone) {
+    els.customerPhone.addEventListener("input", () => {
+      els.customerPhone.value = els.customerPhone.value.replace(/\D/g, "").slice(0, 10);
+    });
+  }
 
   document.querySelectorAll(".nav-item").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -970,9 +1139,9 @@ async function init() {
     });
 
     try {
-      const remote = await window.invoiceDb.fetchInvoices();
-      if (remote && remote.length > 0) {
-        saveInvoices(remote);
+      // Reconciles remote with local cache without overwriting newer local edits
+      const merged = await window.invoiceDb.fetchInvoices();
+      if (merged && merged.length > 0) {
         renderDashboard();
       }
     } catch (err) {
@@ -981,9 +1150,10 @@ async function init() {
   }
 
   const draft = loadDraft();
-  if (draft) applyState(draft);
-  else {
-    currentId = crypto.randomUUID();
+  if (draft) {
+    applyState(draft);
+  } else {
+    currentId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
     applyState({
       id: currentId,
       customerName: "Raju",
@@ -991,11 +1161,12 @@ async function init() {
       refNo: "38044",
       issueDate: todayISO(),
       paymentMode: "Paid – UPI / Cash",
+      profit: "1500",
       notes: "",
       items: [
         {
           name: "Aqua RO machine",
-          serialNo: "Enter",
+          serialNo: "SN-10294",
           warranty: "1 Year",
           validTill: calcWarrantyValidity(todayISO(), "1 Year"),
           qty: 1,
@@ -1003,7 +1174,7 @@ async function init() {
         },
         {
           name: "Inverter",
-          serialNo: "Enter",
+          serialNo: "INV-4412",
           warranty: "1 Year",
           validTill: calcWarrantyValidity(todayISO(), "1 Year"),
           qty: 1,
@@ -1011,7 +1182,7 @@ async function init() {
         },
         {
           name: "Battery",
-          serialNo: "Enter",
+          serialNo: "BAT-9901",
           warranty: "2 Years",
           validTill: calcWarrantyValidity(todayISO(), "2 Years"),
           qty: 1,
@@ -1020,8 +1191,31 @@ async function init() {
       ],
     });
   }
+
   if (typeof applyLogoDataUrls === "function") applyLogoDataUrls();
   showView("dashboard");
 }
 
-init();
+if (typeof window !== "undefined") {
+  init();
+}
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = {
+    roundPaise,
+    parseNum,
+    calcTotals,
+    extractISODate,
+    todayISO,
+    formatDateDisplay,
+    formatMoney,
+    formatMoneyShort,
+    formatQty,
+    parseWarranty,
+    buildWarrantyText,
+    calcWarrantyValidity,
+    numberToWordsIndian,
+    getPeriodBounds,
+    filterInvoicesByPeriod,
+  };
+}

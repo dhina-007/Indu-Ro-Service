@@ -4,7 +4,8 @@
   "description": "INDU RO SERVICE Invoice Application with Supabase PostgreSQL Database",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node tests/audit-suite.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
