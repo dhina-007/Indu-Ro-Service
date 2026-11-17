@@ -3,7 +3,13 @@
  */
 
 function pdfEscape(text) {
-  return String(text)
+  const sanitized = String(text ?? "")
+    .replace(/[\u2010\u2011\u2012\u2013\u2014\u2015\u2212]/g, "-")
+    .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
+    .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
+    .replace(/[\u20B9]/g, "Rs ")
+    .replace(/[^\x20-\x7E]/g, " ");
+  return sanitized
     .replace(/\\/g, "\\\\")
     .replace(/\(/g, "\\(")
     .replace(/\)/g, "\\)");
@@ -323,9 +329,9 @@ function buildInvoicePdfBlob(state, totals) {
   ops.push(`${rgb(11, 127, 196)} rg`);
   ops.push(`0 ${pageH - 6} ${pageW} 6 re f`);
 
-  let y = pageH - 36;
+  // Left Header Text
+  let y = pageH - 34;
 
-  // Header Left
   ops.push("BT");
   ops.push(`/F2 8 Tf ${rgb(11, 127, 196)} rg`);
   ops.push(`1 0 0 1 ${L} ${y} Tm (${pdfEscape("TAX INVOICE")}) Tj`);
@@ -349,16 +355,18 @@ function buildInvoicePdfBlob(state, totals) {
   ops.push(`1 0 0 1 ${L} ${y} Tm (${pdfEscape("7904015662 | 6382182592")}) Tj`);
   ops.push("ET");
 
+  // Logo Right Alignment:
+  // Positioned in top-right corner, level with TAX INVOICE header
   if (logoBytes) {
     const lx = R - drawLogoW;
-    const ly = pageH - 40 - drawLogoH;
-    ops.push(`q ${drawLogoW} 0 0 ${drawLogoH} ${lx} ${ly} cm /Im1 Do Q`);
+    const logoTop = pageH - 32;
+    const ly = logoTop - drawLogoH;
+    ops.push(`q ${drawLogoW} 0 0 ${drawLogoH} ${lx.toFixed(2)} ${ly.toFixed(2)} cm /Im1 Do Q`);
   }
 
-  // Meta Section Box (height = 84pt to comfortably contain all rows)
-  y -= 22;
-  const metaBoxH = 84;
-  const boxTop = y + 14;
+  // Meta Section Box (placed cleanly 22pt below the logo with zero overlap)
+  const metaBoxH = 82;
+  const boxTop = 716;
   const boxBottom = boxTop - metaBoxH;
 
   ops.push(`${rgb(247, 250, 252)} rg`);
@@ -368,7 +376,7 @@ function buildInvoicePdfBlob(state, totals) {
 
   const metaL = L + 14;
   const metaR = R - 135;
-  let my = y;
+  let my = boxTop - 15;
 
   // BILL TO & INVOICE NO
   ops.push("BT");
@@ -409,10 +417,10 @@ function buildInvoicePdfBlob(state, totals) {
   ops.push("ET");
 
   // Payment mode value
-  my -= 11;
+  my -= 10;
   ops.push("BT");
   ops.push(`/F1 8.5 Tf ${rgb(29, 42, 53)} rg`);
-  ops.push(`1 0 0 1 ${metaR} ${my} Tm (${pdfEscape(state.paymentMode || "Paid – UPI / Cash")}) Tj`);
+  ops.push(`1 0 0 1 ${metaR} ${my} Tm (${pdfEscape(state.paymentMode || "Paid - UPI / Cash")}) Tj`);
   ops.push("ET");
 
   // Table setup
